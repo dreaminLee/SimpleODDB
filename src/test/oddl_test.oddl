@@ -1,0 +1,15 @@
+CREATE CLASS stu_ (
+	name CHAR(10),
+	gender CHAR(1),
+	age INT,
+	stuid INT,
+	isgraduate BOOLEAN,
+	testfloat FLOAT
+);
+
+CREATE SELECTDEPUTY popSinger
+SELECT (singerId + 1000) * 100 AS popSingerId,
+	   2019-birthyear AS age,
+	   singerName AS popSingerName
+FROM singer
+WHERE 'pop' = singerType;
