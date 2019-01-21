@@ -1,12 +1,11 @@
 package com.nanimono.simpleoddb.executor;
 
 import com.nanimono.simpleoddb.Catalog;
-import com.nanimono.simpleoddb.object.Type;
-import com.nanimono.simpleoddb.object.TypeEnum;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarBaseListener;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarParser;
+import com.nanimono.simpleoddb.object.Type;
+import com.nanimono.simpleoddb.object.TypeEnum;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 
@@ -61,7 +60,6 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             current.setData(ctx.children.get(1).getText());
         }
         treeNodeStack.push(current);
-        System.out.println(ctx.getText());
     }
 
     @Override
@@ -75,7 +73,6 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             else throw new UnsupportedOperationException("Expression tree build failed.");
         }
         if (treeNodeStack.isEmpty()) rootNodeStack.push(current);
-        System.out.println(ctx.getText());
     }
 
     @Override

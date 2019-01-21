@@ -31,12 +31,17 @@ public class Catalog {
     private HashMap<Integer, AttrTableTuple[]> attrTable = new HashMap<>();
 
     /**
-     * 代理表，使用哈希表进行存储，类id作为key
+     * 代理表，使用哈希表进行存储，代理类id作为key
      */
     private HashMap<Integer, DeputyTableTuple> deputyTable = new HashMap<>();
 
     /**
-     * 切换规则表，使用哈希表进行存储，类id作为key；同一个类的切换规则存储在一个数组中，代理类属性索引作为数组索引
+     * 代理表，使用哈希表进行存储，被代理类id作为key
+     */
+    private HashMap<Integer, DeputyTableTuple> beDeputyTable = new HashMap<>();
+
+    /**
+     * 切换规则表，使用哈希表进行存储，代理类id作为key；同一个类的切换规则存储在一个数组中，代理类属性索引作为数组索引
      */
     private HashMap<Integer, SwitchExprTableTuple[]> switchExprTable = new HashMap<>();
 
@@ -396,10 +401,12 @@ public class Catalog {
         attrTable.put(classTableIndex, attrList);
 
         // 修改DeputyTable
-        deputyTable.put(classTableIndex, new DeputyTableTuple(classTableIndex,
-                className2classId.get(sClassName),
+        DeputyTableTuple deputyTuple = new DeputyTableTuple(classTableIndex,
+                sourceClass.classId,
                 deputyRule,
-                exprTrees[exprTrees.length - 1]));
+                exprTrees[exprTrees.length - 1]);
+        deputyTable.put(classTableIndex, deputyTuple);
+        beDeputyTable.put(sourceClass.classId, deputyTuple);
 
         // 修改SwitchExprTable
         SwitchExprTableTuple[] switchExprList = new SwitchExprTableTuple[attrList.length];
@@ -415,19 +422,38 @@ public class Catalog {
     }
 
     /**
-     * 删除类
+     * 删除类；仅修改系统表
      *
      * @param className 类名
      */
     public void dropClass(String className) {
-        if (!className2classId.containsKey(className)) throw new IllegalArgumentException("Class doesn't exist.");
+        if (!className2classId.containsKey(className))
+            throw new IllegalArgumentException("Class doesn't exist.");
 
-        ClassTableTuple classTableTuple = classTable.get(className2classId.get(className));
+        // 先删除子类
+        ClassTableTuple classToDelete = classTable.get(className2classId.get(className));
+        if (classToDelete.hasSubClass) {
+            dropClass(beDeputyTable.get(classToDelete.classId).deputyClassId);
+        }
 
-        AttrTableTuple[] attrTableTuples = attrTable.get(classTableTuple.classId);
-        attrTable.remove(classTableTuple.classId);
-        SwitchExprTableTuple[] switchExprTableTuples = switchExprTable.get(classTableTuple.classId);
-        switchExprTable.remove(classTableTuple.classId);
+        // 若是代理类，先删除切换规则、代理规则中的条目
+        if (classToDelete.classType != ClassType.SOURCECLASS) {
+            switchExprTable.remove(classToDelete.classId);
+            beDeputyTable.remove(deputyTable.get(classToDelete.classId).sourceClassId);
+            deputyTable.remove(classToDelete.classId);
+        }
+
+        // 删除属性表、类表中的条目
+        attrTable.remove(classToDelete.classId);
+        classTable.remove(classToDelete.classId);
+        className2classId.remove(className);
+        classToDelete = null;
+    }
+
+    private void dropClass(int classId) {
+        if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
+            throw new IllegalArgumentException("Class doesn't exist");
+        dropClass(classTable.get(classId).className);
     }
 
     //==============================================辅助方法=======================================================
@@ -498,4 +524,5 @@ public class Catalog {
             }
         }
     }
+
 }

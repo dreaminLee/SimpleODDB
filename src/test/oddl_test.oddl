@@ -13,3 +13,5 @@ SELECT name AS name,
        age AS age
 FROM stu_
 WHERE isgraduate = TRUE;
+
+DROP CLASS stu_;
