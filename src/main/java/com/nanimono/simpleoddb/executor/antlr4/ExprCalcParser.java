@@ -19,10 +19,10 @@ public class ExprCalcParser extends Parser {
 	protected static final PredictionContextCache _sharedContextCache =
 		new PredictionContextCache();
 	public static final int
-		T__0=1, T__1=2, ID=3, DECIMAL=4, SIGNED_DECIMAL=5, REAL=6, SIGNED_REAL=7, 
-		STRING_LITERAL=8, ADD=9, SUB=10, MUL=11, DIV=12, MOD=13, EQUAL=14, NOT_EQUAL=15, 
-		GREATER=16, LESS=17, GREATER_OR_EQUAL=18, LESS_OR_EQUAL=19, AND=20, OR=21, 
-		TRUE=22, FALSE=23, WS=24;
+		T__0=1, T__1=2, DECIMAL=3, SIGNED_DECIMAL=4, REAL=5, SIGNED_REAL=6, STRING_LITERAL=7, 
+		MOD=8, MUL=9, DIV=10, ADD=11, SUB=12, GREATER=13, LESS=14, GREATER_OR_EQUAL=15, 
+		LESS_OR_EQUAL=16, EQUAL=17, NOT_EQUAL=18, AND=19, OR=20, TRUE=21, FALSE=22, 
+		ID=23, WS=24;
 	public static final int
 		RULE_expression = 0, RULE_value = 1;
 	private static String[] makeRuleNames() {
@@ -34,17 +34,17 @@ public class ExprCalcParser extends Parser {
 
 	private static String[] makeLiteralNames() {
 		return new String[] {
-			null, "'('", "')'", null, null, null, null, null, null, "'+'", "'-'", 
-			"'*'", "'/'", "'%'", null, null, "'>'", "'<'", "'>='", "'<='"
+			null, "'('", "')'", null, null, null, null, null, "'%'", "'*'", "'/'", 
+			"'+'", "'-'", "'>'", "'<'", "'>='", "'<='"
 		};
 	}
 	private static final String[] _LITERAL_NAMES = makeLiteralNames();
 	private static String[] makeSymbolicNames() {
 		return new String[] {
-			null, null, null, "ID", "DECIMAL", "SIGNED_DECIMAL", "REAL", "SIGNED_REAL", 
-			"STRING_LITERAL", "ADD", "SUB", "MUL", "DIV", "MOD", "EQUAL", "NOT_EQUAL", 
-			"GREATER", "LESS", "GREATER_OR_EQUAL", "LESS_OR_EQUAL", "AND", "OR", 
-			"TRUE", "FALSE", "WS"
+			null, null, null, "DECIMAL", "SIGNED_DECIMAL", "REAL", "SIGNED_REAL", 
+			"STRING_LITERAL", "MOD", "MUL", "DIV", "ADD", "SUB", "GREATER", "LESS", 
+			"GREATER_OR_EQUAL", "LESS_OR_EQUAL", "EQUAL", "NOT_EQUAL", "AND", "OR", 
+			"TRUE", "FALSE", "ID", "WS"
 		};
 	}
 	private static final String[] _SYMBOLIC_NAMES = makeSymbolicNames();
@@ -348,11 +348,11 @@ public class ExprCalcParser extends Parser {
 						_localctx = new MOD_Context(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(13);
-						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
+						if (!(precpred(_ctx, 10))) throw new FailedPredicateException(this, "precpred(_ctx, 10)");
 						setState(14);
 						((MOD_Context)_localctx).op = match(MOD);
 						setState(15);
-						expression(9);
+						expression(11);
 						}
 						break;
 					case 2:
@@ -360,7 +360,7 @@ public class ExprCalcParser extends Parser {
 						_localctx = new MUL_DIVContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(16);
-						if (!(precpred(_ctx, 7))) throw new FailedPredicateException(this, "precpred(_ctx, 7)");
+						if (!(precpred(_ctx, 9))) throw new FailedPredicateException(this, "precpred(_ctx, 9)");
 						setState(17);
 						((MUL_DIVContext)_localctx).op = _input.LT(1);
 						_la = _input.LA(1);
@@ -373,7 +373,7 @@ public class ExprCalcParser extends Parser {
 							consume();
 						}
 						setState(18);
-						expression(8);
+						expression(10);
 						}
 						break;
 					case 3:
@@ -381,7 +381,7 @@ public class ExprCalcParser extends Parser {
 						_localctx = new ADD_SUBContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(19);
-						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
+						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
 						setState(20);
 						((ADD_SUBContext)_localctx).op = _input.LT(1);
 						_la = _input.LA(1);
@@ -394,7 +394,7 @@ public class ExprCalcParser extends Parser {
 							consume();
 						}
 						setState(21);
-						expression(7);
+						expression(9);
 						}
 						break;
 					case 4:
@@ -402,7 +402,7 @@ public class ExprCalcParser extends Parser {
 						_localctx = new GREATER_LESSContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(22);
-						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
+						if (!(precpred(_ctx, 7))) throw new FailedPredicateException(this, "precpred(_ctx, 7)");
 						setState(23);
 						((GREATER_LESSContext)_localctx).op = _input.LT(1);
 						_la = _input.LA(1);
@@ -415,7 +415,7 @@ public class ExprCalcParser extends Parser {
 							consume();
 						}
 						setState(24);
-						expression(6);
+						expression(8);
 						}
 						break;
 					case 5:
@@ -423,7 +423,7 @@ public class ExprCalcParser extends Parser {
 						_localctx = new EQUAL_ORNOTContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(25);
-						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
+						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
 						setState(26);
 						((EQUAL_ORNOTContext)_localctx).op = _input.LT(1);
 						_la = _input.LA(1);
@@ -436,7 +436,7 @@ public class ExprCalcParser extends Parser {
 							consume();
 						}
 						setState(27);
-						expression(5);
+						expression(7);
 						}
 						break;
 					case 6:
@@ -444,11 +444,11 @@ public class ExprCalcParser extends Parser {
 						_localctx = new LOGICContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(28);
-						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
 						setState(29);
 						((LOGICContext)_localctx).op = match(AND);
 						setState(30);
-						expression(4);
+						expression(6);
 						}
 						break;
 					case 7:
@@ -456,11 +456,11 @@ public class ExprCalcParser extends Parser {
 						_localctx = new LOGICContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
 						setState(31);
-						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
 						setState(32);
 						((LOGICContext)_localctx).op = match(OR);
 						setState(33);
-						expression(3);
+						expression(5);
 						}
 						break;
 					}
@@ -554,20 +554,37 @@ public class ExprCalcParser extends Parser {
 			setState(43);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
-			case STRING_LITERAL:
-				_localctx = new CHARContext(_localctx);
+			case TRUE:
+			case FALSE:
+				_localctx = new BOOLContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(39);
+				_la = _input.LA(1);
+				if ( !(_la==TRUE || _la==FALSE) ) {
+				_errHandler.recoverInline(this);
+				}
+				else {
+					if ( _input.LA(1)==Token.EOF ) matchedEOF = true;
+					_errHandler.reportMatch(this);
+					consume();
+				}
+				}
+				break;
+			case STRING_LITERAL:
+				_localctx = new CHARContext(_localctx);
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(40);
 				match(STRING_LITERAL);
 				}
 				break;
 			case DECIMAL:
 			case SIGNED_DECIMAL:
 				_localctx = new INTContext(_localctx);
-				enterOuterAlt(_localctx, 2);
+				enterOuterAlt(_localctx, 3);
 				{
-				setState(40);
+				setState(41);
 				_la = _input.LA(1);
 				if ( !(_la==DECIMAL || _la==SIGNED_DECIMAL) ) {
 				_errHandler.recoverInline(this);
@@ -582,28 +599,11 @@ public class ExprCalcParser extends Parser {
 			case REAL:
 			case SIGNED_REAL:
 				_localctx = new FLOATContext(_localctx);
-				enterOuterAlt(_localctx, 3);
-				{
-				setState(41);
-				_la = _input.LA(1);
-				if ( !(_la==REAL || _la==SIGNED_REAL) ) {
-				_errHandler.recoverInline(this);
-				}
-				else {
-					if ( _input.LA(1)==Token.EOF ) matchedEOF = true;
-					_errHandler.reportMatch(this);
-					consume();
-				}
-				}
-				break;
-			case TRUE:
-			case FALSE:
-				_localctx = new BOOLContext(_localctx);
 				enterOuterAlt(_localctx, 4);
 				{
 				setState(42);
 				_la = _input.LA(1);
-				if ( !(_la==TRUE || _la==FALSE) ) {
+				if ( !(_la==REAL || _la==SIGNED_REAL) ) {
 				_errHandler.recoverInline(this);
 				}
 				else {
@@ -638,19 +638,19 @@ public class ExprCalcParser extends Parser {
 	private boolean expression_sempred(ExpressionContext _localctx, int predIndex) {
 		switch (predIndex) {
 		case 0:
-			return precpred(_ctx, 8);
+			return precpred(_ctx, 10);
 		case 1:
-			return precpred(_ctx, 7);
+			return precpred(_ctx, 9);
 		case 2:
-			return precpred(_ctx, 6);
+			return precpred(_ctx, 8);
 		case 3:
-			return precpred(_ctx, 5);
+			return precpred(_ctx, 7);
 		case 4:
-			return precpred(_ctx, 4);
+			return precpred(_ctx, 6);
 		case 5:
-			return precpred(_ctx, 3);
+			return precpred(_ctx, 5);
 		case 6:
-			return precpred(_ctx, 2);
+			return precpred(_ctx, 4);
 		}
 		return true;
 	}
@@ -659,18 +659,18 @@ public class ExprCalcParser extends Parser {
 		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\32\60\4\2\t\2\4\3"+
 		"\t\3\3\2\3\2\3\2\3\2\3\2\3\2\3\2\5\2\16\n\2\3\2\3\2\3\2\3\2\3\2\3\2\3"+
 		"\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\7\2%\n\2\f"+
-		"\2\16\2(\13\2\3\3\3\3\3\3\3\3\5\3.\n\3\3\3\2\3\2\4\2\4\2\t\3\2\r\16\3"+
-		"\2\13\f\3\2\22\25\3\2\20\21\3\2\6\7\3\2\b\t\3\2\30\31\29\2\r\3\2\2\2\4"+
-		"-\3\2\2\2\6\7\b\2\1\2\7\16\5\4\3\2\b\16\7\5\2\2\t\n\7\3\2\2\n\13\5\2\2"+
-		"\2\13\f\7\4\2\2\f\16\3\2\2\2\r\6\3\2\2\2\r\b\3\2\2\2\r\t\3\2\2\2\16&\3"+
-		"\2\2\2\17\20\f\n\2\2\20\21\7\17\2\2\21%\5\2\2\13\22\23\f\t\2\2\23\24\t"+
-		"\2\2\2\24%\5\2\2\n\25\26\f\b\2\2\26\27\t\3\2\2\27%\5\2\2\t\30\31\f\7\2"+
-		"\2\31\32\t\4\2\2\32%\5\2\2\b\33\34\f\6\2\2\34\35\t\5\2\2\35%\5\2\2\7\36"+
-		"\37\f\5\2\2\37 \7\26\2\2 %\5\2\2\6!\"\f\4\2\2\"#\7\27\2\2#%\5\2\2\5$\17"+
-		"\3\2\2\2$\22\3\2\2\2$\25\3\2\2\2$\30\3\2\2\2$\33\3\2\2\2$\36\3\2\2\2$"+
-		"!\3\2\2\2%(\3\2\2\2&$\3\2\2\2&\'\3\2\2\2\'\3\3\2\2\2(&\3\2\2\2).\7\n\2"+
-		"\2*.\t\6\2\2+.\t\7\2\2,.\t\b\2\2-)\3\2\2\2-*\3\2\2\2-+\3\2\2\2-,\3\2\2"+
-		"\2.\5\3\2\2\2\6\r$&-";
+		"\2\16\2(\13\2\3\3\3\3\3\3\3\3\5\3.\n\3\3\3\2\3\2\4\2\4\2\t\3\2\13\f\3"+
+		"\2\r\16\3\2\17\22\3\2\23\24\3\2\27\30\3\2\5\6\3\2\7\b\29\2\r\3\2\2\2\4"+
+		"-\3\2\2\2\6\7\b\2\1\2\7\16\5\4\3\2\b\16\7\31\2\2\t\n\7\3\2\2\n\13\5\2"+
+		"\2\2\13\f\7\4\2\2\f\16\3\2\2\2\r\6\3\2\2\2\r\b\3\2\2\2\r\t\3\2\2\2\16"+
+		"&\3\2\2\2\17\20\f\f\2\2\20\21\7\n\2\2\21%\5\2\2\r\22\23\f\13\2\2\23\24"+
+		"\t\2\2\2\24%\5\2\2\f\25\26\f\n\2\2\26\27\t\3\2\2\27%\5\2\2\13\30\31\f"+
+		"\t\2\2\31\32\t\4\2\2\32%\5\2\2\n\33\34\f\b\2\2\34\35\t\5\2\2\35%\5\2\2"+
+		"\t\36\37\f\7\2\2\37 \7\25\2\2 %\5\2\2\b!\"\f\6\2\2\"#\7\26\2\2#%\5\2\2"+
+		"\7$\17\3\2\2\2$\22\3\2\2\2$\25\3\2\2\2$\30\3\2\2\2$\33\3\2\2\2$\36\3\2"+
+		"\2\2$!\3\2\2\2%(\3\2\2\2&$\3\2\2\2&\'\3\2\2\2\'\3\3\2\2\2(&\3\2\2\2)."+
+		"\t\6\2\2*.\7\t\2\2+.\t\7\2\2,.\t\b\2\2-)\3\2\2\2-*\3\2\2\2-+\3\2\2\2-"+
+		",\3\2\2\2.\5\3\2\2\2\6\r$&-";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {

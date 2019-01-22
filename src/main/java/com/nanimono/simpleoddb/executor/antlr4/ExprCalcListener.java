@@ -115,6 +115,18 @@ public interface ExprCalcListener extends ParseTreeListener {
 	 */
 	void exitEQUAL_ORNOT(ExprCalcParser.EQUAL_ORNOTContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code BOOL}
+	 * labeled alternative in {@link ExprCalcParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void enterBOOL(ExprCalcParser.BOOLContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code BOOL}
+	 * labeled alternative in {@link ExprCalcParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void exitBOOL(ExprCalcParser.BOOLContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code CHAR}
 	 * labeled alternative in {@link ExprCalcParser#value}.
 	 * @param ctx the parse tree
@@ -150,16 +162,4 @@ public interface ExprCalcListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitFLOAT(ExprCalcParser.FLOATContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code BOOL}
-	 * labeled alternative in {@link ExprCalcParser#value}.
-	 * @param ctx the parse tree
-	 */
-	void enterBOOL(ExprCalcParser.BOOLContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code BOOL}
-	 * labeled alternative in {@link ExprCalcParser#value}.
-	 * @param ctx the parse tree
-	 */
-	void exitBOOL(ExprCalcParser.BOOLContext ctx);
 }

@@ -160,7 +160,7 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
                 field = new IntField(Integer.parseInt(value.getText()));
             } else {
-                field = new CharField(value.getText().toCharArray());
+                field = new CharField(value.getText());
             }
             if (field.getType() != attrIte.next().getType()) throw new IllegalArgumentException("Value is not the right type.");
             object.setField(i, field);

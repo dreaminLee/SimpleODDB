@@ -52,7 +52,7 @@ public class Type implements Serializable {
                     byte[] bs = new byte[len];
                     dis.read(bs);
                     String text = new String(bs);
-                    return new CharField(text.toCharArray());
+                    return new CharField(text);
 
                 case LONG_TYPE:
                     return new LongField(dis.readLong());

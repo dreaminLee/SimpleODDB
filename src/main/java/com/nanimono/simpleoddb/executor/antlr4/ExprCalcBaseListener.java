@@ -123,6 +123,18 @@ public class ExprCalcBaseListener implements ExprCalcListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterBOOL(ExprCalcParser.BOOLContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitBOOL(ExprCalcParser.BOOLContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterCHAR(ExprCalcParser.CHARContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -154,18 +166,6 @@ public class ExprCalcBaseListener implements ExprCalcListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitFLOAT(ExprCalcParser.FLOATContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterBOOL(ExprCalcParser.BOOLContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitBOOL(ExprCalcParser.BOOLContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

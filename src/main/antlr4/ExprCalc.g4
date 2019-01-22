@@ -1,26 +1,25 @@
 grammar ExprCalc;
 
 expression
-    : value # constant
-    | ID # var
-    | expression op=MOD expression # MOD_
+    : expression op=MOD expression # MOD_
     | expression op=( MUL | DIV ) expression # MUL_DIV
     | expression op=( ADD | SUB ) expression # ADD_SUB
     | expression op=( GREATER | GREATER_OR_EQUAL | LESS | LESS_OR_EQUAL ) expression # GREATER_LESS
     | expression op=( EQUAL | NOT_EQUAL ) expression # EQUAL_ORNOT
     | expression op=AND expression # LOGIC
     | expression op=OR  expression # LOGIC
+    | value # constant
+    | ID # var
     | '(' expression ')' # BRACKET
     ;
 
 value
-    : STRING_LITERAL # CHAR
+    : (TRUE | FALSE) # BOOL
+    | STRING_LITERAL # CHAR
     | (SIGNED_DECIMAL | DECIMAL) # INT
     | (SIGNED_REAL | REAL) # FLOAT
-    | (TRUE | FALSE) # BOOL
     ;
 
-ID : [a-zA-Z_] [a-zA-Z0-9_]* ;
 
 DECIMAL: DEC_DIGIT+;
 SIGNED_DECIMAL: ('+' | '-')? DECIMAL;
@@ -31,19 +30,19 @@ STRING_LITERAL
  ;
 
 // arithmetic
-ADD : '+';
-SUB : '-';
+MOD : '%';
 MUL : '*';
 DIV : '/';
-MOD : '%';
+ADD : '+';
+SUB : '-';
 
 // compare
-EQUAL : ('=' | '==');
-NOT_EQUAL : ('!=' | '<>');
 GREATER : '>';
 LESS : '<';
 GREATER_OR_EQUAL: '>=';
 LESS_OR_EQUAL : '<=';
+EQUAL : ('=' | '==');
+NOT_EQUAL : ('!=' | '<>');
 
 // logic
 AND : A N D;
@@ -51,7 +50,9 @@ OR : O R;
 TRUE : T R U E;
 FALSE : F A L S E;
 
+ID : [a-zA-Z_] [a-zA-Z0-9_]* ;
 WS : [ \t\r\n]+ -> skip ;
+
 fragment DEC_DIGIT:  [0-9];
 fragment A : [aA];
 fragment B : [bB];

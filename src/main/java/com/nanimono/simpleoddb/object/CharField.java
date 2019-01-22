@@ -6,30 +6,29 @@ import java.lang.Object;
 
 public class CharField implements Field {
 
-    private char[] value;
+    private String value;
     private int len;
 
-    public char[] getValue() { return value; }
+    public String getValue() { return value; }
 
-    public CharField(char[] value) {
+    public CharField(String value) {
         this.value = value;
-        this.len = value.length;
+        this.len = value.length();
     }
 
     @Override
-    public String toString() { return String.copyValueOf(value); }
+    public String toString() { return value; }
 
     @Override
-    public int hashCode() { return String.valueOf(value).hashCode(); }
+    public int hashCode() { return value.hashCode(); }
 
     @Override
-    public boolean equals(Object field) { return ((CharField) field).value == value; }
+    public boolean equals(Object field) { return ((CharField)field).value.equals(value); }
 
     @Override
     public void serialize(DataOutputStream dos) throws IOException {
-        String s = String.valueOf(value);
         dos.writeInt(len);
-        dos.writeBytes(s);
+        dos.writeBytes(value);
     }
 
     // TODO compare method
