@@ -1,61 +1,60 @@
 package com.nanimono.simpleoddb.object;
 
+import com.nanimono.simpleoddb.Catalog;
+import com.nanimono.simpleoddb.DB;
+
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * 对象类
+ */
 public class Object implements Serializable {
 
-    private ClassDesc classDesc;
+    private int belongClassId;
 
     private Field[] fields;
 
-    // private RecordId recordId;
+    private int len;
 
-    /**
-     * Create a new object with the specified schema (ClassDesc).
-     * @param od the schema of this object.
-     */
-    public Object(ClassDesc od) {
-        this.classDesc = od;
-        fields = new Field[od.getNumFields()];
+    public Object(String className) {
+        this.belongClassId = DB.getCatalog().getClassId(className);
+        this.fields = new Field[DB.getCatalog().getClassAttrList(belongClassId).length];
+        this.len = 0;
+        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(className);
+        while (attrIterator.hasNext()) {
+            len += attrIterator.next().getSize();
+        }
     }
 
-    /**
-     * @return the schema of this object
-     */
-    public ClassDesc getClassDesc() { return classDesc; }
+    public int getBelongClassId() {
+        return belongClassId;
+    }
 
-    private boolean isValidIndex(int index) { return index >= 0 && index < fields.length; }
+    public int getLen() {
+        return len;
+    }
 
-    public void setField(int i, Field f) {
-        if (!isValidIndex(i)) throw new IllegalArgumentException("Index out of bound");
-        fields[i] = f;
+    private boolean isIndexValid(int i) {
+        return i >= 0 && i < fields.length;
     }
 
     public Field getField(int i) {
-        if (!isValidIndex(i)) throw new IllegalArgumentException("Index out of bound");
+        if (!isIndexValid(i)) throw new IllegalArgumentException("Index out of bound.");
         return fields[i];
     }
 
-    public String toString() {
-        StringBuffer rowString = new StringBuffer();
-        for (int i = 0; i < fields.length; i++) {
-            if (i == fields.length - 1) {
-                rowString.append(fields[i].toString());
-            } else {
-                rowString.append(fields[i].toString() + "\t");
-            }
-        }
-        return rowString.toString();
+    public void setField(int i, Field f) {
+        if (!isIndexValid(i)) throw new IllegalArgumentException("Index out of bound.");
+        fields[i] = f;
     }
 
-    public Iterator<Field> fieldIterator() {
+    public FieldIterator getFieldIterator() {
         return new FieldIterator();
     }
 
     private class FieldIterator implements Iterator<Field> {
-
         private int pos = 0;
 
         @Override
@@ -65,10 +64,9 @@ public class Object implements Serializable {
 
         @Override
         public Field next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            return fields[pos++];
+            if (!hasNext()) throw new NoSuchElementException();
+            return fields[pos];
         }
+
     }
 }

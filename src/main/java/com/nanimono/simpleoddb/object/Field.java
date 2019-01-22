@@ -8,8 +8,6 @@ public interface Field extends Serializable {
 
     void serialize(DataOutputStream dos) throws IOException;
 
-    // TODO: compare method
-
     TypeEnum getType();
 
     int getSize();

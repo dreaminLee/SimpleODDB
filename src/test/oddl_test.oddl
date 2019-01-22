@@ -14,4 +14,4 @@ SELECT name AS name,
 FROM stu_
 WHERE isgraduate = TRUE;
 
-DROP CLASS stu_;
+INSERT INTO stu_ VALUES ('abc', 'M', 20, 2016300000, TRUE, 3.1415);

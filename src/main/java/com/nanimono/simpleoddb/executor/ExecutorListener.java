@@ -1,17 +1,17 @@
 package com.nanimono.simpleoddb.executor;
 
 import com.nanimono.simpleoddb.Catalog;
+import com.nanimono.simpleoddb.DB;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarBaseListener;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarParser;
-import com.nanimono.simpleoddb.object.Type;
-import com.nanimono.simpleoddb.object.TypeEnum;
+import com.nanimono.simpleoddb.object.*;
+import com.nanimono.simpleoddb.object.Object;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
 public class ExecutorListener extends OddlGrammarBaseListener {
-
-    private Catalog catalog;
 
     /**
      * 分析expression所使用的成员变量
@@ -20,8 +20,7 @@ public class ExecutorListener extends OddlGrammarBaseListener {
     private Stack<ExprTreeNode> treeNodeStack;
     private Stack<ExprTreeNode> rootNodeStack;
 
-    public ExecutorListener(Catalog catalog) {
-        this.catalog = catalog;
+    public ExecutorListener() {
         current = null;
         treeNodeStack = null;
         rootNodeStack = null;
@@ -108,7 +107,7 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             }
         }
 
-        catalog.addSourceClass(className, attrList, typeList);
+        DB.addSourceClass(className, attrList, typeList);
     }
 
     @Override
@@ -135,24 +134,39 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             exprTrees[i] = rootNodeStack.pop();
         }
 
-        catalog.addSelectDeputyClass(className, sClassName, switchExprs, dAttr, deputyRule, exprTrees);
+        DB.addSelectDeputyClass(className, sClassName, switchExprs, dAttr, deputyRule, exprTrees);
     }
 
     @Override
     public void exitDropClass(OddlGrammarParser.DropClassContext ctx) {
         String className = ctx.className().getText();
-        catalog.dropClass(className);
+        DB.dropClass(className);
     }
 
     @Override
     public void exitInsertIntoClass(OddlGrammarParser.InsertIntoClassContext ctx) {
         String className = ctx.className().getText();
-        String[] valueList = new String[ctx.valueList().value().size()];
-        for (int index = 0; index < valueList.length; index++) {
-            valueList[index] = ctx.valueList().value(index).children.toString();
-            System.out.println(valueList[index]);
+        Object object = new Object(className);
+        if (DB.getCatalog().getClassAttrList(object.getBelongClassId()).length != ctx.valueList().value().size())
+            throw new IllegalArgumentException("Value list's size and class's attribute list's size must be the same.");
+        Iterator<Catalog.AttrTableTuple> attrIte = DB.getCatalog().getClassAttrIterator(className);
+        for (int i = 0; i < ctx.valueList().value().size(); i++) {
+            OddlGrammarParser.ValueContext value = ctx.valueList().value(i);
+            Field field;
+            if (value.TRUE() != null || value.FALSE() != null) {
+                field = new BooleanField(Boolean.parseBoolean(value.getText()));
+            } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
+                field = new FloatField(Float.parseFloat(value.getText()));
+            } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
+                field = new IntField(Integer.parseInt(value.getText()));
+            } else {
+                field = new CharField(value.getText().toCharArray());
+            }
+            if (field.getType() != attrIte.next().getType()) throw new IllegalArgumentException("Value is not the right type.");
+            object.setField(i, field);
         }
-        // value in String Format
+
+        DB.insertObject(className, object);
     }
 
     @Override
