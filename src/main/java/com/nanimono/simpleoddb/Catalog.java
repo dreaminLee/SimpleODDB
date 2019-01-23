@@ -41,7 +41,7 @@ public class Catalog implements Serializable {
     /**
      * 代理表，使用哈希表进行存储，被代理类id作为key
      */
-    private HashMap<Integer, DeputyTableTuple> beDeputyTable = new HashMap<>();
+    private HashMap<Integer, ArrayList<DeputyTableTuple>> beDeputyTable = new HashMap<>();
 
     /**
      * 切换规则表，使用哈希表进行存储，代理类id作为key；同一个类的切换规则存储在一个数组中，代理类属性索引作为数组索引
@@ -460,7 +460,8 @@ public class Catalog implements Serializable {
                 deputyRule,
                 exprTrees[exprTrees.length - 1]);
         deputyTable.put(classTableIndex, deputyTuple);
-        beDeputyTable.put(sourceClass.classId, deputyTuple);
+        if (!beDeputyTable.containsKey(sourceClass.classId)) beDeputyTable.put(sourceClass.classId, new ArrayList<>());
+        beDeputyTable.get(sourceClass.classId).add(deputyTuple);
 
         // 修改SwitchExprTable
         SwitchExprTableTuple[] switchExprList = new SwitchExprTableTuple[attrList.length];
@@ -487,21 +488,25 @@ public class Catalog implements Serializable {
         // 先删除子类
         ClassTableTuple classToDelete = classTable.get(getClassId(className));
         if (classToDelete.hasSubClass) {
-            dropClass(beDeputyTable.get(classToDelete.classId).deputyClassId);
+            while (beDeputyTable.get(classToDelete.classId).size() != 0)
+                dropClass(beDeputyTable.get(classToDelete.classId).remove(0).deputyClassId);
+            beDeputyTable.remove(classToDelete.classId);
         }
 
-        // 若是代理类，先删除切换规则、代理规则中的条目
+        // 若是代理类，删除切换规则、代理规则中的条目
         if (classToDelete.classType != ClassType.SOURCECLASS) {
             switchExprTable.remove(classToDelete.classId);
-            beDeputyTable.remove(deputyTable.get(classToDelete.classId).sourceClassId);
+            //beDeputyTable.remove(deputyTable.get(classToDelete.classId).sourceClassId);
+            if (beDeputyTable.get(deputyTable.get(classToDelete.classId).sourceClassId).size() == 0)
+                classTable.get(deputyTable.get(classToDelete.classId).sourceClassId).hasSubClass = false;
             deputyTable.remove(classToDelete.classId);
         }
 
         // 删除属性表、类表中的条目
         attrTable.remove(classToDelete.classId);
-        classTable.remove(classToDelete.classId);
+        classTable.get(classToDelete.classId).classType = ClassType.UNALLOCATED;
+        classTable.get(classToDelete.classId).className = null;
         className2classId.remove(className);
-        classToDelete = null;
     }
 
     private void dropClass(int classId) {

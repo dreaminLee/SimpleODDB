@@ -58,6 +58,7 @@ public class DB {
 
     public void reset() { _instance = new DB(); }
 
+
     public static void main(String[] args) throws IOException {
         Path path = FileSystems.getDefault().getPath("src\\test", "oddl_test.oddl");
         CharStream charStream = CharStreams.fromPath(path);

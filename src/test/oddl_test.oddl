@@ -7,6 +7,8 @@ CREATE CLASS stu_ (
 	testfloat FLOAT
 );
 
+INSERT INTO stu_ VALUES ('abc', 'M', 20, 2016300000, TRUE, 3.1415);
+
 CREATE SELECTDEPUTY graduate
 SELECT name AS name,
        gender AS gender,
@@ -14,4 +16,12 @@ SELECT name AS name,
 FROM stu_
 WHERE isgraduate = TRUE;
 
-INSERT INTO stu_ VALUES ('abc', 'M', 20, 2016300000, TRUE, 3.1415);
+CREATE SELECTDEPUTY undergraduate
+SELECT name AS name,
+       gender AS gender,
+       age AS age
+FROM stu_
+WHERE isgraduate = FALSE;
+
+DROP CLASS stu_;
+
