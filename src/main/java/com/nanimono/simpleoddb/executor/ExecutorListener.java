@@ -211,5 +211,36 @@ public class ExecutorListener extends OddlGrammarBaseListener {
     @Override
     public void exitUpdateObject(OddlGrammarParser.UpdateObjectContext ctx) {
         String className = ctx.className().getText();
+        int classId = DB.getCatalog().getClassId(className);
+        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+            throw new IllegalArgumentException("Update class other than source class is not supported.");
+        Catalog.AttrTableTuple[] attrTuple = DB.getCatalog().getClassAttrList(classId);
+        Field[] values = new Field[attrTuple.length];
+        for (int i = 0; i < ctx.attrName().size(); i++) {
+            String attrName = ctx.attrName(i).getText();
+            int attrIndex = 0;
+            for (; attrIndex < attrTuple.length; attrIndex++) {
+                if (attrName.equals(attrTuple[attrIndex].getAttrName())) break;
+            }
+            if (attrIndex >= attrTuple.length)
+                throw new IllegalArgumentException("Attribute doesn't exist.");
+            OddlGrammarParser.ValueContext value = ctx.value(i);
+            Field field;
+            if (value.TRUE() != null || value.FALSE() != null) {
+                field = new BooleanField(Boolean.parseBoolean(value.getText()));
+            } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
+                field = new FloatField(Float.parseFloat(value.getText()));
+            } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
+                field = new IntField(Integer.parseInt(value.getText()));
+            } else {
+                field = new CharField(value.getText());
+            }
+            if (field.getType() != attrTuple[attrIndex].getType())
+                throw new IllegalArgumentException("Wrong type.");
+            values[attrIndex] = field;
+        }
+        String updateRule = ctx.expression().getText();
+
+        DB.updateObject(classId, updateRule, values);
     }
 }

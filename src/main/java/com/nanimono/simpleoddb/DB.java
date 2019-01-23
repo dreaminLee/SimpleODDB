@@ -4,6 +4,7 @@ import com.nanimono.simpleoddb.executor.ExecutorListener;
 import com.nanimono.simpleoddb.executor.ExprTreeNode;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarLexer;
 import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarParser;
+import com.nanimono.simpleoddb.object.Field;
 import com.nanimono.simpleoddb.object.Object;
 import com.nanimono.simpleoddb.object.Type;
 import org.antlr.v4.runtime.CharStream;
@@ -59,6 +60,10 @@ public class DB {
 
     public static void deleteObject(int classId, String deputyRule) {
         getObjectStorage().deleteObject(classId, deputyRule);
+    }
+
+    public static void updateObject(int classId, String updateRule, Field[] fields) {
+        getObjectStorage().updateObject(classId, updateRule, fields);
     }
 
     public void reset() { _instance = new DB(); }

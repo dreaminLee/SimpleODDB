@@ -32,4 +32,7 @@ INSERT INTO stu_ VALUES ('acd', 'M', 20, 2017896214, FALSE, 3.123);
 
 DELETE FROM stu_ WHERE name = 'abc';
 
+INSERT INTO stu_ VALUES ('abc', 'M', 29, 2016300000, TRUE, 3.1415);
+UPDATE stu_ SET isgraduate = FALSE WHERE name = 'abc';
+
 DROP CLASS stu_;

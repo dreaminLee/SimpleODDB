@@ -163,7 +163,15 @@ public class ObjectStorage implements Serializable {
         return objectFiltered;
     }
 
-    public void updateObject(int classId, String updateRule) {
-
+    public void updateObject(int classId, String updateRule, Field[] fields) {
+        ArrayList<Integer> oidToUpdate = filter(classId, updateRule);
+        for (int oid : oidToUpdate) {
+            Object current = classId2ObjectList.get(classId).get(oid);
+            deleteObject(classId, oid);
+            for (int i = 0; i < fields.length; i++) {
+                current.setField(i, fields[i]);
+            }
+            insertObject(classId, current);
+        }
     }
 }
