@@ -146,7 +146,10 @@ public class ExecutorListener extends OddlGrammarBaseListener {
     @Override
     public void exitInsertIntoClass(OddlGrammarParser.InsertIntoClassContext ctx) {
         String className = ctx.className().getText();
-        Object object = new Object(className);
+        int classId = DB.getCatalog().getClassId(className);
+        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+            throw new IllegalArgumentException("Insert into class other than source class is not supported.");
+        Object object = new Object(classId);
         if (DB.getCatalog().getClassAttrList(object.getBelongClassId()).length != ctx.valueList().value().size())
             throw new IllegalArgumentException("Value list's size and class's attribute list's size must be the same.");
         Iterator<Catalog.AttrTableTuple> attrIte = DB.getCatalog().getClassAttrIterator(className);
@@ -165,15 +168,20 @@ public class ExecutorListener extends OddlGrammarBaseListener {
             if (field.getType() != attrIte.next().getType()) throw new IllegalArgumentException("Value is not the right type.");
             object.setField(i, field);
         }
-
-        DB.insertObject(className, object);
+        DB.insertObject(classId, object);
     }
 
     @Override
     public void exitDeleteFromClass(OddlGrammarParser.DeleteFromClassContext ctx) {
         String className = ctx.className().getText();
+        int classId = DB.getCatalog().getClassId(className);
+        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+            throw new IllegalArgumentException("Delete from class other than source class is not supported.");
+        if (ctx.WHERE() == null)
+            throw new IllegalArgumentException("Lack of where clause.");
+        String deputyRule = ctx.expression().getText();
 
-        // TODO: expression
+        DB.deleteObject(classId, deputyRule);
     }
 
     @Override
@@ -198,5 +206,10 @@ public class ExecutorListener extends OddlGrammarBaseListener {
         }
 
         // TODO: expression
+    }
+
+    @Override
+    public void exitUpdateObject(OddlGrammarParser.UpdateObjectContext ctx) {
+        String className = ctx.className().getText();
     }
 }

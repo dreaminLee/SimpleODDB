@@ -161,6 +161,10 @@ public class Catalog implements Serializable {
         return new AttrIterator(getClassId(className));
     }
 
+    public AttrIterator getClassAttrIterator(int classId) {
+        return new AttrIterator(classId);
+    }
+
     /**
      * 代理表元组类，成员包括代理类id、源类id、代理规则；代理规则使用字符串及二叉树进行存储。
      */
@@ -233,10 +237,12 @@ public class Catalog implements Serializable {
 
     //======================================类方法===============================================
 
+    public ClassTableTuple getClassTuple(int classId) { return classTable.get(classId); }
+
     /**
      * 获取类的属性列表
      *
-     * @param classId 类名
+     * @param classId 类id
      * @return 类的属性列表
      */
     public AttrTableTuple[] getClassAttrList(int classId) {
@@ -246,7 +252,7 @@ public class Catalog implements Serializable {
     /**
      * 获取代理类的切换规则
      *
-     * @param classId 类名
+     * @param classId 类id
      * @return
      */
     public SwitchExprTableTuple[] getSwitchRuleList(int classId) {
@@ -264,6 +270,16 @@ public class Catalog implements Serializable {
     }
 
     /**
+     * 获取被代理类的代理规则列表
+     *
+     * @param classId 类id
+     * @return
+     */
+    public ArrayList<DeputyTableTuple> getBeDeputyRule(int classId) {
+        return beDeputyTable.get(classId);
+    }
+
+    /**
      * 获取类id
      *
      * @param className 类名
@@ -274,24 +290,34 @@ public class Catalog implements Serializable {
         return className2classId.get(className);
     }
 
+    public String getClassName(int classId) {
+        if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
+            throw new IllegalArgumentException("Class doesn't exist.");
+        return classTable.get(classId).className;
+    }
+
+    public boolean isClassExist(int classId) {
+        return (classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED);
+    }
+
     /**
      * 获取类类型
      *
-     * @param className 类名
+     * @param classId 类id
      * @return
      */
-    public ClassType getClassType(String className) {
-        return classTable.get(getClassId(className)).classType;
+    public ClassType getClassType(int classId) {
+        return classTable.get(classId).classType;
     }
 
     /**
      * 类是否有子类
      *
-     * @param className 类名
+     * @param classId 类id
      * @return
      */
-    public boolean getClassHasSubclass(String className) {
-        return classTable.get(getClassId(className)).hasSubClass;
+    public boolean getClassHasSubclass(int classId) {
+        return classTable.get(classId).hasSubClass;
     }
 
     /**
@@ -379,6 +405,9 @@ public class Catalog implements Serializable {
         }
         if (exprTrees == null || exprTrees.length == 0) {
             throw new IllegalArgumentException("Expression tree cannot be empty.");
+        }
+        if (deputyRule == null || deputyRule.length() == 0) {
+            throw new IllegalArgumentException("Deputy rule cannot be empty.");
         }
         if (!(switchExprs.length == attrNameList.length && switchExprs.length + 1 == exprTrees.length)) {
             throw new IllegalArgumentException("Switching expression list and attribute name list and expression trees must have the same size");
@@ -488,7 +517,7 @@ public class Catalog implements Serializable {
         // 先删除子类
         ClassTableTuple classToDelete = classTable.get(getClassId(className));
         if (classToDelete.hasSubClass) {
-            while (beDeputyTable.get(classToDelete.classId).size() != 0)
+            while (!beDeputyTable.get(classToDelete.classId).isEmpty())
                 dropClass(beDeputyTable.get(classToDelete.classId).remove(0).deputyClassId);
             beDeputyTable.remove(classToDelete.classId);
         }
@@ -497,7 +526,7 @@ public class Catalog implements Serializable {
         if (classToDelete.classType != ClassType.SOURCECLASS) {
             switchExprTable.remove(classToDelete.classId);
             //beDeputyTable.remove(deputyTable.get(classToDelete.classId).sourceClassId);
-            if (beDeputyTable.get(deputyTable.get(classToDelete.classId).sourceClassId).size() == 0)
+            if (beDeputyTable.get(deputyTable.get(classToDelete.classId).sourceClassId).isEmpty())
                 classTable.get(deputyTable.get(classToDelete.classId).sourceClassId).hasSubClass = false;
             deputyTable.remove(classToDelete.classId);
         }

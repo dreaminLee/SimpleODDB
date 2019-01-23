@@ -32,7 +32,7 @@ public class DB {
 
     public static void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
         getCatalog().addSourceClass(className, attrNameList, typeList);
-        getObjectStorage().addObjectList(className);
+        getObjectStorage().addObjectList(DB.getCatalog().getClassId(className));
     }
 
     public static void addSelectDeputyClass(String className,
@@ -42,7 +42,8 @@ public class DB {
                                      String deputyRule,
                                      ExprTreeNode[] exprTrees) {
         getCatalog().addSelectDeputyClass(className, sClassName, switchExprs, attrNameList, deputyRule, exprTrees);
-        getObjectStorage().addObjectList(className);
+        getObjectStorage().addObjectList(DB.getCatalog().getClassId(className));
+        getObjectStorage().addBiPointerTable(DB.getCatalog().getClassId(className));
     }
 
     public static void dropClass(String className) {
@@ -52,8 +53,12 @@ public class DB {
         getCatalog().dropClass(className);
     }
 
-    public static void insertObject(String className, Object object) {
-        getObjectStorage().insertObject(className, object);
+    public static void insertObject(int classId, Object object) {
+        getObjectStorage().insertObject(classId, object);
+    }
+
+    public static void deleteObject(int classId, String deputyRule) {
+        getObjectStorage().deleteObject(classId, deputyRule);
     }
 
     public void reset() { _instance = new DB(); }

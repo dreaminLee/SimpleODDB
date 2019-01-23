@@ -12,20 +12,36 @@ import java.util.NoSuchElementException;
  */
 public class Object implements Serializable {
 
+    private int oid;
+
     private int belongClassId;
 
     private Field[] fields;
 
     private int len;
 
-    public Object(String className) {
-        this.belongClassId = DB.getCatalog().getClassId(className);
+    public Object(int classId) {
+        if (!DB.getCatalog().isClassExist(classId))
+            throw new IllegalArgumentException("Class doesn't exist.");
+        this.belongClassId = classId;
         this.fields = new Field[DB.getCatalog().getClassAttrList(belongClassId).length];
         this.len = 0;
-        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(className);
+        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
         while (attrIterator.hasNext()) {
             len += attrIterator.next().getSize();
         }
+    }
+
+    public Catalog.ClassType getObjectType() {
+        return DB.getCatalog().getClassType(belongClassId);
+    }
+
+    public int getOid() {
+        return oid;
+    }
+
+    public void setOid(int oid) {
+        this.oid = oid;
     }
 
     public int getBelongClassId() {
@@ -65,8 +81,7 @@ public class Object implements Serializable {
         @Override
         public Field next() {
             if (!hasNext()) throw new NoSuchElementException();
-            return fields[pos];
+            return fields[pos++];
         }
-
     }
 }

@@ -34,7 +34,7 @@ createDeputyClass
     : CREATE SELECTDEPUTY className
       SELECT expression AS dAttr (',' expression AS dAttr)* 
       FROM sClassName
-      (WHERE expression)?
+      WHERE expression
     ;
 
 dropClass
@@ -55,7 +55,7 @@ value
     ;
 
 deleteFromClass
-    : DELETE FROM className (WHERE expression)?;
+    : DELETE FROM className WHERE expression;
 
 simpleQuery
     : SELECT attrList FROM className (WHERE expression)?;
@@ -67,7 +67,7 @@ crossClassQuery
     ;
 
 updateObject
-    : UPDATE className SET attrName '=' value
+    : UPDATE className SET attrName '=' value (',' attrName '=' value)*
       WHERE expression
     ;
 

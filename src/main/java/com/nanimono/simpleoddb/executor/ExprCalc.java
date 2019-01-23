@@ -1,8 +1,14 @@
 package com.nanimono.simpleoddb.executor;
 
 import com.nanimono.simpleoddb.executor.antlr4.ExprCalcBaseListener;
+import com.nanimono.simpleoddb.executor.antlr4.ExprCalcLexer;
 import com.nanimono.simpleoddb.executor.antlr4.ExprCalcParser;
 import com.nanimono.simpleoddb.object.*;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.util.HashMap;
 import java.util.Stack;
@@ -254,6 +260,18 @@ public class ExprCalc extends ExprCalcBaseListener {
         }
 
         stack.push(result);
+    }
+
+    public Field calculate(String expression) {
+        CharStream charStream = CharStreams.fromString(expression);
+        ExprCalcLexer lexer = new ExprCalcLexer(charStream);
+        CommonTokenStream token = new CommonTokenStream(lexer);
+        ExprCalcParser parser = new ExprCalcParser(token);
+        ParseTree tree = parser.expression();
+        ParseTreeWalker walker = new ParseTreeWalker();
+        walker.walk(this, tree);
+
+        return stack.pop();
     }
 
     /*
