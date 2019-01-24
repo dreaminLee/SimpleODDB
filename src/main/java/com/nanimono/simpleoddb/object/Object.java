@@ -1,8 +1,5 @@
 package com.nanimono.simpleoddb.object;
 
-import com.nanimono.simpleoddb.Catalog;
-import com.nanimono.simpleoddb.DB;
-
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -12,7 +9,7 @@ import java.util.NoSuchElementException;
  */
 public class Object implements Serializable {
 
-    private int oid;
+    private long oid;
 
     private int belongClassId;
 
@@ -20,27 +17,18 @@ public class Object implements Serializable {
 
     private int len;
 
-    public Object(int classId) {
-        if (!DB.getCatalog().isClassExist(classId))
-            throw new IllegalArgumentException("Class doesn't exist.");
-        this.belongClassId = classId;
-        this.fields = new Field[DB.getCatalog().getClassAttrList(belongClassId).length];
-        this.len = 0;
-        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
-        while (attrIterator.hasNext()) {
-            len += attrIterator.next().getSize();
-        }
+    public Object() {
+        this.oid = -1;
+        this.belongClassId = -1;
+        this.len = -1;
+        this.fields = null;
     }
 
-    public Catalog.ClassType getObjectType() {
-        return DB.getCatalog().getClassType(belongClassId);
-    }
-
-    public int getOid() {
+    public long getOid() {
         return oid;
     }
 
-    public void setOid(int oid) {
+    public void setOid(long oid) {
         this.oid = oid;
     }
 
@@ -48,8 +36,16 @@ public class Object implements Serializable {
         return belongClassId;
     }
 
+    public void setBelongClassId(int belongClassId) {
+        this.belongClassId = belongClassId;
+    }
+
     public int getLen() {
         return len;
+    }
+
+    public void setLen(int len) {
+        this.len = len;
     }
 
     private boolean isIndexValid(int i) {
@@ -64,6 +60,10 @@ public class Object implements Serializable {
     public void setField(int i, Field f) {
         if (!isIndexValid(i)) throw new IllegalArgumentException("Index out of bound.");
         fields[i] = f;
+    }
+
+    public void setField(Field[] fields) {
+        this.fields = fields;
     }
 
     public FieldIterator getFieldIterator() {

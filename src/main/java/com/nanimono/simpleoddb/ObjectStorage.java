@@ -1,6 +1,6 @@
 package com.nanimono.simpleoddb;
 
-import com.nanimono.simpleoddb.executor.ExprCalc;
+import com.nanimono.simpleoddb.executorhelper.ExprCalc;
 import com.nanimono.simpleoddb.object.BooleanField;
 import com.nanimono.simpleoddb.object.Field;
 import com.nanimono.simpleoddb.object.Object;
@@ -9,84 +9,51 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
-public class ObjectStorage implements Serializable {
-
-    /**
-     * 类id，oid ---> 对象
-     */
-    private HashMap<Integer, HashMap<Integer, Object>> classId2ObjectList = new HashMap<>();
+class ObjectStorage implements Serializable {
 
     /**
-     * 类id ---> 下一个oid
+     * oid ---> 对象
      */
-    private HashMap<Integer, Integer> nextOid = new HashMap<>();
+    private HashMap<Long, Object> oid2Object = new HashMap<>();
 
     /**
-     * 代理类id ---> 双向指针表
+     * 类id ---> oid list
      */
-    private HashMap<Integer, ArrayList<BiPointerTableTuple>> biPointerTable = new HashMap<>();
+    private HashMap<Integer, ArrayList<Long>> classId2oidList = new HashMap<>();
 
-    public class BiPointerTableTuple implements Serializable {
-        private int deputyClassId;
-        private int deputyObjectId;
-        private int sourceClassId;
-        private int sourceObjectId;
+    private long nextOid = 0;
 
-        public BiPointerTableTuple(int deputyClassId, int deputyObjectId, int sourceClassId, int sourceObjectId) {
-            this.deputyClassId = deputyClassId;
-            this.deputyObjectId = deputyObjectId;
-            this.sourceClassId = sourceClassId;
-            this.sourceObjectId = sourceObjectId;
+    /**
+     * 代理oid ---> 源oid
+     */
+    private HashMap<Long, Long> deputyoid2sourceoid = new HashMap<>();
+
+    /**
+     * 源oid ---> 代理oid表
+     */
+    private HashMap<Long, ArrayList<Long>> sourceoid2deputyoid = new HashMap<>();
+
+    void addObjectList(int classId) {
+        classId2oidList.put(classId, new ArrayList<>());
+    }
+
+    void removeObjectList(int classId) {
+        if (DB.getCatalog().getClassHasSubclass(classId)) {
+            for (Catalog.DeputyTableTuple tuple : DB.getCatalog().getBeDeputyRule(classId))
+                removeObjectList(tuple.getDeputyClassId());
         }
-
-        public int getDeputyClassId() {
-            return deputyClassId;
-        }
-
-        public int getDeputyObjectId() {
-            return deputyObjectId;
-        }
-
-        public int getSourceClassId() {
-            return sourceClassId;
-        }
-
-        public int getSourceObjectId() {
-            return sourceObjectId;
-        }
+        classId2oidList.remove(classId);
     }
 
-    public int nextObjectIndex(int classId) {
-        int oid = nextOid.get(classId);
-        nextOid.put(classId, oid + 1);
-        return oid;
-    }
+    void insertObject(Object object) {
 
-    public void addObjectList(int classId) {
-        classId2ObjectList.put(classId, new HashMap<>());
-        nextOid.put(classId, 0);
-    }
-
-    public void removeObjectList(int classId) {
-        classId2ObjectList.remove(classId);
-        nextOid.remove(classId);
-    }
-
-    public void addBiPointerTable(int classId) {
-        biPointerTable.put(classId, new ArrayList<>());
-    }
-
-    public void removeBiPointerTable(int classId) {
-        biPointerTable.remove(classId);
-    }
-
-    public void insertObject(int classId, Object object) {
-
-        // 插入源对象并创建新对象插入代理类
-        object.setOid(nextObjectIndex(classId));
-        classId2ObjectList.get(classId).put(object.getOid(), object);
+        // 插入源对象并根据代理规则判断是否创建新代理对象并插入
+        object.setOid(nextOid);
+        int classId = object.getBelongClassId();
+        classId2oidList.get(classId).add(nextOid);
+        sourceoid2deputyoid.put(nextOid, new ArrayList<>());
+        oid2Object.put(nextOid++, object);
 
         if (DB.getCatalog().getClassHasSubclass(classId)) {
             HashMap<String, Field> var2field = new HashMap<>();
@@ -100,78 +67,135 @@ public class ObjectStorage implements Serializable {
                 ExprCalc calc = new ExprCalc(var2field);
                 Field result = calc.calculate(deputyTuple.getDeputyRule());
                 if (((BooleanField) result).getValue()) {
-                    Object deputyObject = new Object(deputyTuple.getDeputyClassId());
+                    Object deputyObject = DB.getCatalog().newObject(deputyTuple.getDeputyClassId());
                     Catalog.SwitchExprTableTuple[] switchExprList = DB.getCatalog().getSwitchRuleList(deputyTuple.getDeputyClassId());
                     for (int i = 0; i < switchExprList.length; i++) {
                         Field field = calc.calculate(switchExprList[i].getSwitchRule());
                         deputyObject.setField(i, field);
                     }
-                    DB.insertObject(deputyTuple.getDeputyClassId(), deputyObject);
-                    biPointerTable.get(deputyTuple.getDeputyClassId()).add(new BiPointerTableTuple(
-                            deputyTuple.getDeputyClassId(),
-                            deputyObject.getOid(),
-                            classId,
-                            object.getOid()
-                    ));
+                    insertObject(deputyObject);
+                    deputyoid2sourceoid.put(deputyObject.getOid(), object.getOid());
+                    sourceoid2deputyoid.get(object.getOid()).add(deputyObject.getOid());
                 }
             }
         }
     }
 
-    public void deleteObject(int classId, String deputyRule) {
-        ArrayList<Integer> objectToDelete = filter(classId, deputyRule);
-        for (int oid : objectToDelete) {
-            deleteObject(classId, oid);
+    void deleteObject(int classId, String deputyRule) {
+        ArrayList<Long> objectToDelete = filter(classId, deputyRule);
+        if (objectToDelete.size() == 0) return;
+        for (Long oid : objectToDelete) {
+            deleteObject(oid);
         }
     }
 
-    private void deleteObject(int classId, int oid) {
+    private void deleteObject(long oid) {
+        int classId = oid2Object.get(oid).getBelongClassId();
         if (DB.getCatalog().getClassHasSubclass(classId)) {
-            Iterator<Catalog.DeputyTableTuple> it = DB.getCatalog().getBeDeputyRule(classId).iterator();
-            while (it.hasNext()) {
-                int deputyClassId = it.next().getDeputyClassId();
-                Iterator<BiPointerTableTuple> biPointerIte = biPointerTable.get(deputyClassId).iterator();
-                while (biPointerIte.hasNext()) {
-                    BiPointerTableTuple tuple = biPointerIte.next();
-                    if (tuple.getSourceClassId() == classId && tuple.getSourceObjectId() == oid) {
-                        deleteObject(deputyClassId, tuple.getDeputyObjectId());
-                        biPointerTable.get(deputyClassId).remove(tuple);
-                        break;
-                    }
-                }
+            for (long deputyoid : sourceoid2deputyoid.get(oid)) {
+                deleteObject(deputyoid);
+                deputyoid2sourceoid.remove(deputyoid);
             }
         }
-        classId2ObjectList.get(classId).remove(oid);
+        sourceoid2deputyoid.remove(oid);
+        classId2oidList.get(oid2Object.get(oid).getBelongClassId()).remove(oid);
+        oid2Object.remove(oid);
     }
 
-    private ArrayList<Integer> filter(int classId, String filterRule) {
-        Iterator<Map.Entry<Integer, Object>> it = classId2ObjectList.get(classId).entrySet().iterator();
+    private ArrayList<Long> filter(int classId, String filterRule) {
+        Iterator<Long> it = classId2oidList.get(classId).iterator();
         HashMap<String, Field> var2field = new HashMap<>();
         Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(classId);
-        ArrayList<Integer> objectFiltered = new ArrayList<>();
+        ArrayList<Long> objectFiltered = new ArrayList<>();
         while (it.hasNext()) {
-            Object current = it.next().getValue();
+            Object current = oid2Object.get(it.next());
             for (int i = 0; i < attrList.length; i++) {
-                var2field.put(attrList[i].getAttrName(), current.getField(i));
+                var2field.put(attrList[i].getAttrName(),
+                        current.getField(i));
             }
             ExprCalc calc = new ExprCalc(var2field);
             if (((BooleanField)calc.calculate(filterRule)).getValue()) {
                 objectFiltered.add(current.getOid());
             }
-            else continue;
         }
         return objectFiltered;
     }
 
-    public void updateObject(int classId, String updateRule, Field[] fields) {
-        ArrayList<Integer> oidToUpdate = filter(classId, updateRule);
-        for (int oid : oidToUpdate) {
-            Object current = classId2ObjectList.get(classId).get(oid);
-            deleteObject(classId, oid);
+    void updateObject(int classId, String updateRule, Field[] fields) {
+        ArrayList<Long> oidToUpdate = filter(classId, updateRule);
+        if (oidToUpdate.size() == 0) return;
+        for (long oid : oidToUpdate) {
+            Object current = oid2Object.get(oid);
+            deleteObject(oid);
             for (int i = 0; i < fields.length; i++) {
-                current.setField(i, fields[i]);
+                if (fields[i] != null)
+                    current.setField(i, fields[i]);
             }
-            insertObject(classId, current);
+            insertObject(current);
         }
+    }
+
+    void clearObject(int classId) {
+        while (!classId2oidList.get(classId).isEmpty()) {
+            deleteObject(classId2oidList.get(classId).get(0));
+        }
+    }
+
+    String simpleQuery(int classId, boolean[] isQueryList, String filter) {
+        ArrayList<Long> oidQuery;
+        if (filter != null)
+            oidQuery = filter(classId, filter);
+        else
+            oidQuery = classId2oidList.get(classId);
+        if (oidQuery.size() == 0) return null;
+        StringBuilder builder = new StringBuilder();
+        for (long oid : oidQuery) {
+            Object current = oid2Object.get(oid);
+            for (int i = 0; i < isQueryList.length; i++) {
+                if (isQueryList[i]) {
+                    builder.append(current.getField(i).toString());
+                    builder.append("    ");
+                }
+            }
+            builder.append("\r\n");
+        }
+        return new String(builder);
+    }
+
+    String crossClassQuery(int fromClassId, int destClassId, boolean[] isQueryList, String filter) {
+        ArrayList<Long> oidQuery = filter(fromClassId, filter);
+        if (oidQuery.size() == 0) return null;
+        if (DB.getCatalog().getClassType(fromClassId) == Catalog.ClassType.SELECTDEPUTY) {
+            ArrayList<Long> newoidQuery = new ArrayList<>();
+            for (long oid : oidQuery) {
+                newoidQuery.add(deputyoid2sourceoid.get(oid));
+            }
+            oidQuery = newoidQuery;
+        }
+
+        if (oid2Object.get(oidQuery.get(0)).getBelongClassId() != destClassId) {
+            ArrayList<Long> newoidQuery = new ArrayList<>();
+            for (long oid : oidQuery) {
+                for (long deputyoid : sourceoid2deputyoid.get(oid)) {
+                    if (oid2Object.get(deputyoid).getBelongClassId() == destClassId)
+                        newoidQuery.add(deputyoid);
+                }
+            }
+            oidQuery = newoidQuery;
+        }
+
+        if (oidQuery.size() == 0) return null;
+        StringBuilder builder = new StringBuilder();
+        for (long oid : oidQuery) {
+            Object current = oid2Object.get(oid);
+            for (int i = 0; i < isQueryList.length; i++) {
+                if (isQueryList[i]) {
+                    builder.append(current.getField(i).toString());
+                    builder.append("    ");
+                }
+            }
+            builder.append("\r\n");
+        }
+        return new String(builder);
     }
 }

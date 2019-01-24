@@ -1,9 +1,8 @@
 package com.nanimono.simpleoddb;
 
-import com.nanimono.simpleoddb.executor.ExecutorListener;
-import com.nanimono.simpleoddb.executor.ExprTreeNode;
-import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarLexer;
-import com.nanimono.simpleoddb.executor.antlr4.OddlGrammarParser;
+import com.nanimono.simpleoddb.executorhelper.ExprTreeNode;
+import com.nanimono.simpleoddb.executorhelper.antlr4.OddlGrammarLexer;
+import com.nanimono.simpleoddb.executorhelper.antlr4.OddlGrammarParser;
 import com.nanimono.simpleoddb.object.Field;
 import com.nanimono.simpleoddb.object.Object;
 import com.nanimono.simpleoddb.object.Type;
@@ -13,8 +12,10 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileSystems;
+import java.io.InputStream;
 import java.nio.file.Path;
 
 public class DB {
@@ -27,16 +28,16 @@ public class DB {
         _objectLists = new ObjectStorage();
     }
 
-    public static Catalog getCatalog() { return _instance._catalog; }
+    static Catalog getCatalog() { return _instance._catalog; }
 
-    public static ObjectStorage getObjectStorage() { return _instance._objectLists; }
+    private static ObjectStorage getObjectStorage() { return _instance._objectLists; }
 
-    public static void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
+    static void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
         getCatalog().addSourceClass(className, attrNameList, typeList);
         getObjectStorage().addObjectList(DB.getCatalog().getClassId(className));
     }
 
-    public static void addSelectDeputyClass(String className,
+    static void addSelectDeputyClass(String className,
                                      String sClassName,
                                      String[] switchExprs,
                                      String[] attrNameList,
@@ -44,40 +45,68 @@ public class DB {
                                      ExprTreeNode[] exprTrees) {
         getCatalog().addSelectDeputyClass(className, sClassName, switchExprs, attrNameList, deputyRule, exprTrees);
         getObjectStorage().addObjectList(DB.getCatalog().getClassId(className));
-        getObjectStorage().addBiPointerTable(DB.getCatalog().getClassId(className));
     }
 
-    public static void dropClass(String className) {
+    static void dropClass(String className) {
 
-        // TODO: 修改对象
+        int classId = getCatalog().getClassId(className);
+        getObjectStorage().clearObject(classId);
+        getObjectStorage().removeObjectList(classId);
 
         getCatalog().dropClass(className);
     }
 
-    public static void insertObject(int classId, Object object) {
-        getObjectStorage().insertObject(classId, object);
+    static void insertObject(Object object) {
+        getObjectStorage().insertObject(object);
     }
 
-    public static void deleteObject(int classId, String deputyRule) {
+    static void deleteObject(int classId, String deputyRule) {
         getObjectStorage().deleteObject(classId, deputyRule);
     }
 
-    public static void updateObject(int classId, String updateRule, Field[] fields) {
+    static void updateObject(int classId, String updateRule, Field[] fields) {
         getObjectStorage().updateObject(classId, updateRule, fields);
     }
 
-    public void reset() { _instance = new DB(); }
+    static void simpleQuery(int classId, boolean[] isQueryList, String filter) {
+        System.out.println(getObjectStorage().simpleQuery(classId, isQueryList, filter));
+    }
 
+    static void crossClassQuery(int fromClassId, int destClassId, boolean[] isQueryList, String filter) {
+        System.out.println(getObjectStorage().crossClassQuery(fromClassId, destClassId, isQueryList, filter));
+    }
 
-    public static void main(String[] args) throws IOException {
-        Path path = FileSystems.getDefault().getPath("src\\test", "oddl_test.oddl");
-        CharStream charStream = CharStreams.fromPath(path);
+    public static void reset() { _instance = new DB(); }
+
+    public static void execute(InputStream is) throws IOException {
+        CharStream charStream = CharStreams.fromStream(is);
         OddlGrammarLexer lexer = new OddlGrammarLexer(charStream);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         OddlGrammarParser parser = new OddlGrammarParser(tokens);
         ParseTree tree = parser.root();
-
         ParseTreeWalker walker = new ParseTreeWalker();
-        walker.walk(new ExecutorListener(), tree);
+        walker.walk(new Executor(), tree);
+    }
+
+    public static void execute(String oddlSentence) {
+        CharStream charStream = CharStreams.fromString(oddlSentence);
+        OddlGrammarLexer lexer = new OddlGrammarLexer(charStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        OddlGrammarParser parser = new OddlGrammarParser(tokens);
+        ParseTree tree = parser.root();
+        ParseTreeWalker walker = new ParseTreeWalker();
+        walker.walk(new Executor(), tree);
+    }
+
+    public static void main(String[] args) {
+        try {
+            InputStream is = new FileInputStream("D:\\Codes\\ODDB\\SimpleODDB\\src\\test\\oddl_test.oddl");
+            DB.execute(is);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 }

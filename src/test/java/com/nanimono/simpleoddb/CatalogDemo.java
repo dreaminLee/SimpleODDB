@@ -17,7 +17,7 @@ public class CatalogDemo {
         ParseTree tree = parser.root();
 
         ParseTreeWalker walker = new ParseTreeWalker();
-        walker.walk(new ExecutorListener(catalog), tree);
+        walker.walk(new Executor(catalog), tree);
 
         try {
             FileOutputStream fileOut = new FileOutputStream("D:\\TEMP\\catalog.ser");

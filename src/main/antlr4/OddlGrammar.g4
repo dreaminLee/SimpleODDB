@@ -58,12 +58,12 @@ deleteFromClass
     : DELETE FROM className WHERE expression;
 
 simpleQuery
-    : SELECT attrList FROM className (WHERE expression)?;
+    : SELECT attrList FROM className WHERE expression;
 
 crossClassQuery
-    : SELECT className (CROSS className)* DOT attrName 
+    : SELECT className '->' className DOT attrList
       FROM className
-      (WHERE expression)?
+      WHERE expression
     ;
 
 updateObject
@@ -94,7 +94,8 @@ dAttr: attrName;
 className: ID;
 attrName:  ID;
 attrList
-    : attrName (',' attrName)
+    : attrName (',' attrName)*
+    | '*'
     ;
 dataType
     : CHAR ('(' DECIMAL ')')?
@@ -105,7 +106,6 @@ dataType
 AS : A S;
 CLASS:  C L A S S;
 CREATE : C R E A T E;
-CROSS : C R O S S;
 DELETE : D E L E T E;
 DROP : D R O P;
 FROM : F R O M;
@@ -150,6 +150,14 @@ STRING_LITERAL
 
 SIGNED_DECIMAL: ('+' | '-')? DECIMAL;
 SIGNED_REAL: ('+' | '-')? REAL;
+
+SINGLE_LINE_COMMENT
+ : '//' ~[\r\n]* -> channel(HIDDEN)
+ ;
+
+MULTILINE_COMMENT
+ : '/*' .*? ( '*/' | EOF ) -> channel(HIDDEN)
+ ;
 
 ID : [a-zA-Z_] [a-zA-Z0-9_]* ;
 

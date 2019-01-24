@@ -1,38 +1,66 @@
-CREATE CLASS stu_ (
-	name CHAR(10),
-	gender CHAR(1),
-	age INT,
-	stuid INT,
-	isgraduate BOOLEAN,
-	testfloat FLOAT
-);
+CREATE CLASS singer
+(singerid int,singername char(20),gender char(6),singertype char(10),collegeeducated boolean,property float,nation char(10)) ;
 
-CREATE SELECTDEPUTY graduate
-SELECT name AS name,
-       gender AS gender,
-       age AS age
-FROM stu_
-WHERE isgraduate = TRUE;
 
-CREATE SELECTDEPUTY undergraduate
-SELECT name AS name,
-       gender AS gender,
-       age AS age
-FROM stu_
-WHERE isgraduate = FALSE;
+CREATE SELECTDEPUTY popSinger
+    SELECT singerid AS popSingerid,
+           singername AS popSingername
+    FROM singer
+    WHERE singertype = 'pop';
+//set up a new class
 
-CREATE SELECTDEPUTY old_undergraduate
-SELECT name AS name,
-       gender AS gender
-FROM graduate
-WHERE age > 25;
 
-INSERT INTO stu_ VALUES ('abc', 'M', 29, 2016300000, TRUE, 3.1415);
-INSERT INTO stu_ VALUES ('acd', 'M', 20, 2017896214, FALSE, 3.123);
+INSERT INTO singer VALUES
+(1,'LIUDEHUA','male','pop',false,1.00,'CHINA');
 
-DELETE FROM stu_ WHERE name = 'abc';
+INSERT INTO singer VALUES
+(5,'LINYOUJIA','male','pop',true,2.00,'CHINA');
 
-INSERT INTO stu_ VALUES ('abc', 'M', 29, 2016300000, TRUE, 3.1415);
-UPDATE stu_ SET isgraduate = FALSE WHERE name = 'abc';
+INSERT INTO singer VALUES
+(2,'TAYLARSWIFT','female','pop',false,4.00,'AMERICA');
 
-DROP CLASS stu_;
+INSERT INTO singer VALUES
+(3,'ERO','female','jazz',false,4.00,'JAPAN');
+
+INSERT INTO singer VALUES
+(4,'ZHOUJIELUN','male','pop',false,8.00,'CHINA');
+
+INSERT INTO singer VALUES
+(4,'AXS','female','folk',true,6.00,'CHINA');
+//insert some objects
+
+
+
+DELETE FROM singer
+WHERE singerid=5;
+
+DELETE FROM singer
+WHERE singername='ERO';
+//delete some objects
+
+
+UPDATE singer SET singertype = 'folk'
+WHERE singerid = 1;
+
+UPDATE singer SET property = 6.00
+WHERE singername='ZHOUJIELUN';
+
+UPDATE singer SET nation = 'JAPAN'
+WHERE singerid = 2;
+//update some objects
+
+
+SELECT singername,property
+FROM singer
+WHERE gender = 'female'
+AND singertype = 'folk';
+//simple query
+
+
+SELECT popSinger -> singer.nation
+FROM popSinger
+WHERE popSingername = 'ZHOUJIELUN';
+//transboundary query
+
+DROP CLASS singer;
+//delete class

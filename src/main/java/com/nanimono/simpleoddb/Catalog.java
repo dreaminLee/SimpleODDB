@@ -1,6 +1,8 @@
 package com.nanimono.simpleoddb;
 
-import com.nanimono.simpleoddb.executor.ExprTreeNode;
+import com.nanimono.simpleoddb.executorhelper.ExprTreeNode;
+import com.nanimono.simpleoddb.object.Field;
+import com.nanimono.simpleoddb.object.Object;
 import com.nanimono.simpleoddb.object.Type;
 import com.nanimono.simpleoddb.object.TypeEnum;
 
@@ -14,7 +16,7 @@ import java.util.NoSuchElementException;
 /**
  * 存储系统表并对系统表进行操作。
  */
-public class Catalog implements Serializable {
+class Catalog implements Serializable {
 
     //===================================成员================================================
 
@@ -50,52 +52,52 @@ public class Catalog implements Serializable {
 
     //===================================成员辅助类============================================
 
+    public enum AttrType {REAL_ATTR, VIRTUAL_ATTR;}
     public enum ClassType {UNALLOCATED, SOURCECLASS, SELECTDEPUTY}
 
     /**
      * 类表元组类，成员包括类id、类名、类类型、是否有子类
      */
-    public class ClassTableTuple implements Serializable {
+    class ClassTableTuple implements Serializable {
 
         private int classId;       // start from zero
         private String className;
         private ClassType classType;
+
         private boolean hasSubClass;
 
-        public ClassTableTuple(int classId, String className, ClassType classType) {
+        ClassTableTuple(int classId, String className, ClassType classType) {
             this.classId = classId;
             this.className = className;
             this.classType = classType;
             this.hasSubClass = false;
         }
 
-        public int getClassId() {
+        int getClassId() {
             return classId;
         }
 
-        public String getClassName() {
+        String getClassName() {
             return className;
         }
 
-        public ClassType getClassType() {
+        ClassType getClassType() {
             return classType;
         }
 
-        public boolean isHasSubClass() {
+        boolean isHasSubClass() {
             return hasSubClass;
         }
-
-        public void setHasSubClass(boolean hasSubClass) {
+        void setHasSubClass(boolean hasSubClass) {
             this.hasSubClass = hasSubClass;
         }
-    }
 
-    public enum AttrType {REAL_ATTR, VIRTUAL_ATTR}
+    }
 
     /**
      * 属性表元组类，成员包括所属类引用，属性名，属性大小，数据类型，属性类型（实属性、虚属性）
      */
-    public class AttrTableTuple implements Serializable {
+    class AttrTableTuple implements Serializable {
 
         private ClassTableTuple belongClass;
         private String attrName;
@@ -103,7 +105,7 @@ public class Catalog implements Serializable {
         private int size;
         private AttrType attrType;
 
-        public AttrTableTuple(ClassTableTuple belongClass, String attrName, TypeEnum type, int size, AttrType attrType) {
+        AttrTableTuple(ClassTableTuple belongClass, String attrName, TypeEnum type, int size, AttrType attrType) {
             this.belongClass = belongClass;
             this.attrName = attrName;
             this.type = type;
@@ -112,23 +114,23 @@ public class Catalog implements Serializable {
             this.attrType = attrType;
         }
 
-        public ClassTableTuple getBelongClass() {
+        ClassTableTuple getBelongClass() {
             return belongClass;
         }
 
-        public String getAttrName() {
+        String getAttrName() {
             return attrName;
         }
 
-        public TypeEnum getType() {
+        TypeEnum getType() {
             return type;
         }
 
-        public int getSize() {
+        int getSize() {
             return size;
         }
 
-        public AttrType getAttrType() {
+        AttrType getAttrType() {
             return attrType;
         }
     }
@@ -156,19 +158,19 @@ public class Catalog implements Serializable {
         }
     }
 
-    public AttrIterator getClassAttrIterator(String className) {
+    AttrIterator getClassAttrIterator(String className) {
         if (!className2classId.containsKey(className)) throw new IllegalArgumentException("Class doesn't exist.");
         return new AttrIterator(getClassId(className));
     }
 
-    public AttrIterator getClassAttrIterator(int classId) {
+    AttrIterator getClassAttrIterator(int classId) {
         return new AttrIterator(classId);
     }
 
     /**
      * 代理表元组类，成员包括代理类id、源类id、代理规则；代理规则使用字符串及二叉树进行存储。
      */
-    public class DeputyTableTuple implements Serializable {
+    class DeputyTableTuple implements Serializable {
 
         private int deputyClassId;
         private int sourceClassId;
@@ -196,7 +198,7 @@ public class Catalog implements Serializable {
     /**
      * 切换规则表元组类，成员包括代理类id、源类id、代理类属性索引、切换规则；切换规则使用字符串及二叉树进行存储。
      */
-    public class SwitchExprTableTuple implements Serializable {
+    class SwitchExprTableTuple implements Serializable {
 
         private int deputyClassId;
         private int sourceClassId;
@@ -237,7 +239,7 @@ public class Catalog implements Serializable {
 
     //======================================类方法===============================================
 
-    public ClassTableTuple getClassTuple(int classId) { return classTable.get(classId); }
+    ClassTableTuple getClassTuple(int classId) { return classTable.get(classId); }
 
     /**
      * 获取类的属性列表
@@ -245,7 +247,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return 类的属性列表
      */
-    public AttrTableTuple[] getClassAttrList(int classId) {
+    AttrTableTuple[] getClassAttrList(int classId) {
         return attrTable.get(classId);
     }
 
@@ -255,7 +257,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return
      */
-    public SwitchExprTableTuple[] getSwitchRuleList(int classId) {
+    SwitchExprTableTuple[] getSwitchRuleList(int classId) {
         return switchExprTable.get(classId);
     }
 
@@ -265,7 +267,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return
      */
-    public DeputyTableTuple getDeputyRule(int classId) {
+    DeputyTableTuple getDeputyRule(int classId) {
         return deputyTable.get(classId);
     }
 
@@ -275,7 +277,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return
      */
-    public ArrayList<DeputyTableTuple> getBeDeputyRule(int classId) {
+    ArrayList<DeputyTableTuple> getBeDeputyRule(int classId) {
         return beDeputyTable.get(classId);
     }
 
@@ -285,18 +287,18 @@ public class Catalog implements Serializable {
      * @param className 类名
      * @return
      */
-    public Integer getClassId(String className) {
+    Integer getClassId(String className) {
         if (!className2classId.containsKey(className)) throw new IllegalArgumentException("Class doesn't exist.");
         return className2classId.get(className);
     }
 
-    public String getClassName(int classId) {
+    String getClassName(int classId) {
         if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
             throw new IllegalArgumentException("Class doesn't exist.");
         return classTable.get(classId).className;
     }
 
-    public boolean isClassExist(int classId) {
+    private boolean isClassExist(int classId) {
         return (classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED);
     }
 
@@ -306,7 +308,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return
      */
-    public ClassType getClassType(int classId) {
+    ClassType getClassType(int classId) {
         return classTable.get(classId).classType;
     }
 
@@ -316,7 +318,7 @@ public class Catalog implements Serializable {
      * @param classId 类id
      * @return
      */
-    public boolean getClassHasSubclass(int classId) {
+    boolean getClassHasSubclass(int classId) {
         return classTable.get(classId).hasSubClass;
     }
 
@@ -327,7 +329,7 @@ public class Catalog implements Serializable {
      * @param attrNameList 属性名
      * @param typeList     数据类型
      */
-    public void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
+    void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
 
         // 参数是否合法
         if (attrNameList == null || attrNameList.length == 0) {
@@ -375,7 +377,11 @@ public class Catalog implements Serializable {
         // 修改 AttrTable
         AttrTableTuple[] attrList = new AttrTableTuple[typeList.length];
         for (int i = 0; i < attrList.length; i++) {
-            attrList[i] = new AttrTableTuple(classTable.get(index), attrNameList[i], typeList[i].getTypeEnum(), typeList[i].getSize(), AttrType.REAL_ATTR);
+            attrList[i] = new AttrTableTuple(classTable.get(index),
+                    attrNameList[i],
+                    typeList[i].getTypeEnum(),
+                    typeList[i].getSize(),
+                    AttrType.REAL_ATTR);
         }
         attrTable.put(index, attrList);
     }
@@ -390,7 +396,7 @@ public class Catalog implements Serializable {
      * @param deputyRule  代理规则
      * @param exprTrees    表达式树
      */
-    public void addSelectDeputyClass(String className,
+    void addSelectDeputyClass(String className,
                                      String sClassName,
                                      String[] switchExprs,
                                      String[] attrNameList,
@@ -510,7 +516,7 @@ public class Catalog implements Serializable {
      *
      * @param className 类名
      */
-    public void dropClass(String className) {
+    void dropClass(String className) {
         if (!className2classId.containsKey(className))
             throw new IllegalArgumentException("Class doesn't exist.");
 
@@ -542,5 +548,24 @@ public class Catalog implements Serializable {
         if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
             throw new IllegalArgumentException("Class doesn't exist");
         dropClass(classTable.get(classId).className);
+    }
+
+    boolean isDirectDeputy(int deputyClassId, int sourceClassId) {
+        return deputyTable.get(deputyClassId) != null && deputyTable.get(deputyClassId).getSourceClassId() == sourceClassId;
+    }
+
+    Object newObject(int classId) {
+        if (!isClassExist(classId))
+            throw new IllegalArgumentException("Class doesn't exist.");
+        Object object = new Object();
+        object.setBelongClassId(classId);
+        object.setField(new Field[getClassAttrList(classId).length]);
+        int len = 0;
+        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
+        while (attrIterator.hasNext()) {
+            len += attrIterator.next().getSize();
+        }
+        object.setLen(len);
+        return object;
     }
 }
