@@ -24,6 +24,10 @@ class ObjectStorage implements Serializable {
 
     private long nextOid = 0;
 
+    long nextOid() {
+        return nextOid++;
+    }
+
     /**
      * 代理oid ---> 源oid
      */
@@ -35,7 +39,7 @@ class ObjectStorage implements Serializable {
     private HashMap<Long, ArrayList<Long>> sourceoid2deputyoid = new HashMap<>();
 
     void addObjectList(int classId) {
-        classId2oidList.put(classId, new ArrayList<>());
+        classId2oidList.put(classId, new ArrayList<Long>());
     }
 
     void removeObjectList(int classId) {
@@ -46,14 +50,28 @@ class ObjectStorage implements Serializable {
         classId2oidList.remove(classId);
     }
 
+    ArrayList<Long> getObjectList(int classId) {
+        return classId2oidList.get(classId);
+    }
+
+    Object getObject(long oid) {
+        return oid2Object.get(oid);
+    }
+
+    void insertBiPointer(long sourceoid, long deputyoid) {
+        deputyoid2sourceoid.put(deputyoid, sourceoid);
+        sourceoid2deputyoid.get(sourceoid).add(deputyoid);
+    }
+
     void insertObject(Object object) {
 
         // 插入源对象并根据代理规则判断是否创建新代理对象并插入
+        long nextOid = nextOid();
         object.setOid(nextOid);
         int classId = object.getBelongClassId();
         classId2oidList.get(classId).add(nextOid);
-        sourceoid2deputyoid.put(nextOid, new ArrayList<>());
-        oid2Object.put(nextOid++, object);
+        sourceoid2deputyoid.put(nextOid, new ArrayList<Long>());
+        oid2Object.put(nextOid, object);
 
         if (DB.getCatalog().getClassHasSubclass(classId)) {
             HashMap<String, Field> var2field = new HashMap<>();
@@ -147,14 +165,24 @@ class ObjectStorage implements Serializable {
             oidQuery = filter(classId, filter);
         else
             oidQuery = classId2oidList.get(classId);
-        if (oidQuery.size() == 0) return null;
         StringBuilder builder = new StringBuilder();
+        builder.append("|  ");
+        for (int i = 0; i < isQueryList.length; i++) {
+            Catalog.AttrTableTuple tuple = DB.getCatalog().getClassAttrList(classId)[i];
+            if (isQueryList[i]) {
+                builder.append(tuple.getAttrName());
+                builder.append("  |  ");
+            }
+        }
+        builder.append("\r\n");
+        if (oidQuery.size() == 0) return new String(builder);
         for (long oid : oidQuery) {
+            builder.append("|  ");
             Object current = oid2Object.get(oid);
             for (int i = 0; i < isQueryList.length; i++) {
                 if (isQueryList[i]) {
                     builder.append(current.getField(i).toString());
-                    builder.append("    ");
+                    builder.append("  |  ");
                 }
             }
             builder.append("\r\n");
@@ -184,14 +212,24 @@ class ObjectStorage implements Serializable {
             oidQuery = newoidQuery;
         }
 
-        if (oidQuery.size() == 0) return null;
         StringBuilder builder = new StringBuilder();
+        builder.append("|  ");
+        for (int i = 0; i < isQueryList.length; i++) {
+            Catalog.AttrTableTuple tuple = DB.getCatalog().getClassAttrList(destClassId)[i];
+            if (isQueryList[i]) {
+                builder.append(tuple.getAttrName());
+                builder.append("  |  ");
+            }
+        }
+        builder.append("\r\n");
+        if (oidQuery.size() == 0) return new String(builder);
         for (long oid : oidQuery) {
+            builder.append("|  ");
             Object current = oid2Object.get(oid);
             for (int i = 0; i < isQueryList.length; i++) {
                 if (isQueryList[i]) {
                     builder.append(current.getField(i).toString());
-                    builder.append("    ");
+                    builder.append("  |  ");
                 }
             }
             builder.append("\r\n");

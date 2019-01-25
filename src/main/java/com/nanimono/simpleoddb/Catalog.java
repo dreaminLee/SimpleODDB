@@ -1,10 +1,9 @@
 package com.nanimono.simpleoddb;
 
+import com.nanimono.simpleoddb.executorhelper.ExprCalc;
 import com.nanimono.simpleoddb.executorhelper.ExprTreeNode;
-import com.nanimono.simpleoddb.object.Field;
 import com.nanimono.simpleoddb.object.Object;
-import com.nanimono.simpleoddb.object.Type;
-import com.nanimono.simpleoddb.object.TypeEnum;
+import com.nanimono.simpleoddb.object.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -329,7 +328,7 @@ class Catalog implements Serializable {
      * @param attrNameList 属性名
      * @param typeList     数据类型
      */
-    void addSourceClass(String className, String[] attrNameList, Type[] typeList) {
+    void addSourceClass(String className, String[] attrNameList, Type[] typeList) throws IllegalArgumentException {
 
         // 参数是否合法
         if (attrNameList == null || attrNameList.length == 0) {
@@ -353,11 +352,13 @@ class Catalog implements Serializable {
         // classTable中的是否有同名类；得到新建类存储的位置，低位置优先
         int index = classTable.size();
         for (ClassTableTuple tuple : classTable) {
+            if (tuple.classType == ClassType.UNALLOCATED) {
+                if (tuple.classId < index)
+                    index = tuple.classId;
+                continue;
+            }
             if (tuple.className.equals(className)) {
                 throw new IllegalArgumentException("Class already exists.");
-            }
-            if (tuple.classType == ClassType.UNALLOCATED && tuple.classId < index) {
-                index = tuple.classId;
             }
         }
 
@@ -401,7 +402,7 @@ class Catalog implements Serializable {
                                      String[] switchExprs,
                                      String[] attrNameList,
                                      String deputyRule,
-                                     ExprTreeNode[] exprTrees) {
+                                     ExprTreeNode[] exprTrees) throws IllegalArgumentException {
         // 检查参数是否合法
         if (attrNameList == null || attrNameList.length == 0) {
             throw new IllegalArgumentException("Attribute name list cannot be empty.");
@@ -423,14 +424,16 @@ class Catalog implements Serializable {
         ClassTableTuple sourceClass = null;
         int classTableIndex = classTable.size();
         for (ClassTableTuple tuple : classTable) {
-            if (tuple.className.equals(className)) {
-                throw new IllegalArgumentException("Class already exists.");
+            if (tuple.classType == ClassType.UNALLOCATED) {
+                if (tuple.classId < classTableIndex)
+                    classTableIndex = tuple.classId;
+                continue;
             }
             if (tuple.className.equals(sClassName)) {
                 sourceClass = tuple;
             }
-            if (tuple.classType == ClassType.UNALLOCATED && tuple.classId < classTableIndex) {
-                classTableIndex = tuple.classId;
+            if (tuple.className.equals(className)) {
+                throw new IllegalArgumentException("Class already exists.");
             }
         }
         if (sourceClass == null) {
@@ -495,7 +498,7 @@ class Catalog implements Serializable {
                 deputyRule,
                 exprTrees[exprTrees.length - 1]);
         deputyTable.put(classTableIndex, deputyTuple);
-        if (!beDeputyTable.containsKey(sourceClass.classId)) beDeputyTable.put(sourceClass.classId, new ArrayList<>());
+        if (!beDeputyTable.containsKey(sourceClass.classId)) beDeputyTable.put(sourceClass.classId, new ArrayList<DeputyTableTuple>());
         beDeputyTable.get(sourceClass.classId).add(deputyTuple);
 
         // 修改SwitchExprTable
@@ -509,6 +512,25 @@ class Catalog implements Serializable {
         }
         switchExprTable.put(classTableIndex, switchExprList);
 
+        HashMap<String, Field> var2field = new HashMap<>();
+        for (long sourceoid : DB.getObjectStorage().getObjectList(sourceClass.getClassId())) {
+            Iterator<Field> fieldIte = DB.getObjectStorage().getObject(sourceoid).getFieldIterator();
+            for (int i = 0; i < sourceClassAttrs.length; i++) {
+                var2field.put(sourceClassAttrs[i].getAttrName(), DB.getObjectStorage().getObject(sourceoid).getField(i));
+            }
+            ExprCalc calc = new ExprCalc(var2field);
+            Field result = calc.calculate(deputyRule);
+            if (((BooleanField)result).getValue()) {
+                Object deputyObject = newObject(classTableIndex);
+                deputyObject.setOid(DB.getObjectStorage().nextOid());
+                for (int j = 0; j < switchExprList.length; j++) {
+                    Field field = calc.calculate(switchExprList[j].getSwitchRule());
+                    deputyObject.setField(j, field);
+                }
+                DB.getObjectStorage().insertObject(deputyObject);
+                DB.getObjectStorage().insertBiPointer(sourceoid, deputyObject.getOid());
+            }
+        }
     }
 
     /**
@@ -561,7 +583,7 @@ class Catalog implements Serializable {
         object.setBelongClassId(classId);
         object.setField(new Field[getClassAttrList(classId).length]);
         int len = 0;
-        Iterator<Catalog.AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
+        Iterator<AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
         while (attrIterator.hasNext()) {
             len += attrIterator.next().getSize();
         }

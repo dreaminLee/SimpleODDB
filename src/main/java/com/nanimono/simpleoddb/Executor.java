@@ -69,7 +69,7 @@ public class Executor extends OddlGrammarBaseListener {
             ExprTreeNode father = treeNodeStack.peek();
             if (father.getLchild() == null) father.setLchild(current);
             else if (father.getRchild() == null) father.setRchild(current);
-            else throw new UnsupportedOperationException("Expression tree build failed.");
+            else throw new IllegalStateException("Expression tree build failed.");
         }
         if (treeNodeStack.isEmpty()) rootNodeStack.push(current);
     }
@@ -122,7 +122,6 @@ public class Executor extends OddlGrammarBaseListener {
 
     @Override
     public void exitCreateDeputyClass(OddlGrammarParser.CreateDeputyClassContext ctx) {
-
         String sClassName = ctx.sClassName().getText();
         String className = ctx.className().getText();
         String[] switchExprs = new String[ctx.AS().size()];
@@ -136,7 +135,6 @@ public class Executor extends OddlGrammarBaseListener {
         for (int i = exprTrees.length - 1; i >= 0; i--) {
             exprTrees[i] = rootNodeStack.pop();
         }
-
         DB.addSelectDeputyClass(className, sClassName, switchExprs, dAttr, deputyRule, exprTrees);
     }
 
@@ -149,132 +147,153 @@ public class Executor extends OddlGrammarBaseListener {
     @Override
     public void exitInsertIntoClass(OddlGrammarParser.InsertIntoClassContext ctx) {
         String className = ctx.className().getText();
-        int classId = DB.getCatalog().getClassId(className);
-        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
-            throw new IllegalArgumentException("Insert into class other than source class is not supported.");
-        Object object = DB.getCatalog().newObject(classId);
-        if (DB.getCatalog().getClassAttrList(object.getBelongClassId()).length != ctx.valueList().value().size())
-            throw new IllegalArgumentException("Value list's size and class's attribute list's size must be the same.");
-        Iterator<Catalog.AttrTableTuple> attrIte = DB.getCatalog().getClassAttrIterator(className);
-        for (int i = 0; i < ctx.valueList().value().size(); i++) {
-            OddlGrammarParser.ValueContext value = ctx.valueList().value(i);
-            Field field;
-            if (value.TRUE() != null || value.FALSE() != null) {
-                field = new BooleanField(Boolean.parseBoolean(value.getText()));
-            } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
-                field = new FloatField(Float.parseFloat(value.getText()));
-            } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
-                field = new IntField(Integer.parseInt(value.getText()));
-            } else {
-                field = new CharField(value.getText());
+        try {
+            int classId = DB.getCatalog().getClassId(className);
+            if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+                throw new IllegalArgumentException("Insert into class other than source class is not supported.");
+            Object object = DB.getCatalog().newObject(classId);
+            if (DB.getCatalog().getClassAttrList(object.getBelongClassId()).length != ctx.valueList().value().size())
+                throw new IllegalArgumentException("Value list's size and class's attribute list's size must be the same.");
+            Iterator<Catalog.AttrTableTuple> attrIte = DB.getCatalog().getClassAttrIterator(className);
+            for (int i = 0; i < ctx.valueList().value().size(); i++) {
+                OddlGrammarParser.ValueContext value = ctx.valueList().value(i);
+                Field field;
+                if (value.TRUE() != null || value.FALSE() != null) {
+                    field = new BooleanField(Boolean.parseBoolean(value.getText()));
+                } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
+                    field = new FloatField(Float.parseFloat(value.getText()));
+                } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
+                    field = new IntField(Integer.parseInt(value.getText()));
+                } else {
+                    field = new CharField(value.getText());
+                }
+                if (field.getType() != attrIte.next().getType()) throw new IllegalArgumentException("Value is not the right type.");
+                object.setField(i, field);
             }
-            if (field.getType() != attrIte.next().getType()) throw new IllegalArgumentException("Value is not the right type.");
-            object.setField(i, field);
+            DB.insertObject(object);
+        } catch (IllegalArgumentException e) {
+            DB.addMessage(e.getMessage());
         }
-        DB.insertObject(object);
     }
 
     @Override
     public void exitDeleteFromClass(OddlGrammarParser.DeleteFromClassContext ctx) {
         String className = ctx.className().getText();
-        int classId = DB.getCatalog().getClassId(className);
-        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
-            throw new IllegalArgumentException("Delete from class other than source class is not supported.");
-        if (ctx.WHERE() == null)
-            throw new IllegalArgumentException("Lack of where clause.");
-        String deputyRule = ctx.expression().getText();
+        try {
+            int classId = DB.getCatalog().getClassId(className);
+            if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+                throw new IllegalArgumentException("Delete from class other than source class is not supported.");
+            if (ctx.WHERE() == null)
+                throw new IllegalArgumentException("Lack of where clause.");
+            String deputyRule = ctx.expression().getText();
 
-        DB.deleteObject(classId, deputyRule);
+            DB.deleteObject(classId, deputyRule);
+        } catch (IllegalArgumentException e) {
+            DB.addMessage(e.getMessage());
+        }
     }
 
     @Override
     public void exitSimpleQuery(OddlGrammarParser.SimpleQueryContext ctx) {
         String className = ctx.className().getText();
-        int classId = DB.getCatalog().getClassId(className);
-        Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(classId);
-        boolean[] isquery = new boolean[attrList.length];
-        if (ctx.attrList().getText().equals("*")) {
-            Arrays.fill(isquery, true);
-        }
-        else {
-            for (int i = 0; i < ctx.attrList().attrName().size(); i++) {
-                int attrIndex = 0;
-                for (; attrIndex < attrList.length; attrIndex++) {
-                    if (ctx.attrList().attrName(i).getText().equals(attrList[attrIndex].getAttrName())) break;
-                }
-                if (attrIndex >= attrList.length)
-                    throw new IllegalArgumentException("Attribute doesn't exist.");
-                isquery[attrIndex] = true;
+        try {
+            int classId = DB.getCatalog().getClassId(className);
+            Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(classId);
+            boolean[] isquery = new boolean[attrList.length];
+            if (ctx.attrList().getText().equals("*")) {
+                Arrays.fill(isquery, true);
             }
-        }
-        String filter = ctx.expression().getText();
+            else {
+                for (int i = 0; i < ctx.attrList().attrName().size(); i++) {
+                    int attrIndex = 0;
+                    for (; attrIndex < attrList.length; attrIndex++) {
+                        if (ctx.attrList().attrName(i).getText().equals(attrList[attrIndex].getAttrName())) break;
+                    }
+                    if (attrIndex >= attrList.length)
+                        throw new IllegalArgumentException("Attribute doesn't exist.");
+                    isquery[attrIndex] = true;
+                }
+            }
+            String filter = ctx.expression().getText();
 
-        DB.simpleQuery(classId, isquery, filter);
+            DB.simpleQuery(classId, isquery, filter);
+        } catch (IllegalArgumentException e) {
+            DB.addMessage(e.getMessage());
+        }
     }
 
     @Override
     public void exitCrossClassQuery(OddlGrammarParser.CrossClassQueryContext ctx) {
-        if (!ctx.className(0).getText().equals(ctx.className(2).getText())) throw new IllegalArgumentException("Illegal path start class.");
-        int fromClassId = DB.getCatalog().getClassId(ctx.className(2).getText());
-        String filter = ctx.expression().getText();
-        int destClassId = DB.getCatalog().getClassId(ctx.className(1).getText());
-        if (!(DB.getCatalog().isDirectDeputy(fromClassId, destClassId) ||
-                DB.getCatalog().isDirectDeputy(destClassId, fromClassId) ||
-                (DB.getCatalog().getDeputyRule(fromClassId).getSourceClassId() == DB.getCatalog().getDeputyRule(destClassId).getSourceClassId())))
-            throw new IllegalArgumentException("Illegal path expression.");
-        Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(destClassId);
-        boolean[] isquery = new boolean[attrList.length];
-        if (ctx.attrList().getText().equals("*")) {
-            Arrays.fill(isquery, true);
-        }
-        else {
-            for (int i = 0; i < ctx.attrList().attrName().size(); i++) {
-                int attrIndex = 0;
-                for (; attrIndex < attrList.length; attrIndex++) {
-                    if (ctx.attrList().attrName(i).getText().equals(attrList[attrIndex].getAttrName())) break;
-                }
-                if (attrIndex >= attrList.length)
-                    throw new IllegalArgumentException("Attribute doesn't exist.");
-                isquery[attrIndex] = true;
+        try {
+            if (!ctx.className(0).getText().equals(ctx.className(2).getText())) throw new IllegalArgumentException("Illegal path start class.");
+            int fromClassId = DB.getCatalog().getClassId(ctx.className(2).getText());
+            String filter = ctx.expression().getText();
+            int destClassId = DB.getCatalog().getClassId(ctx.className(1).getText());
+            if (!(DB.getCatalog().isDirectDeputy(fromClassId, destClassId) ||
+                    DB.getCatalog().isDirectDeputy(destClassId, fromClassId) ||
+                    (DB.getCatalog().getDeputyRule(fromClassId).getSourceClassId() == DB.getCatalog().getDeputyRule(destClassId).getSourceClassId())))
+                throw new IllegalArgumentException("Illegal path expression.");
+            Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(destClassId);
+            boolean[] isquery = new boolean[attrList.length];
+            if (ctx.attrList().getText().equals("*")) {
+                Arrays.fill(isquery, true);
             }
-        }
+            else {
+                for (int i = 0; i < ctx.attrList().attrName().size(); i++) {
+                    int attrIndex = 0;
+                    for (; attrIndex < attrList.length; attrIndex++) {
+                        if (ctx.attrList().attrName(i).getText().equals(attrList[attrIndex].getAttrName())) break;
+                    }
+                    if (attrIndex >= attrList.length)
+                        throw new IllegalArgumentException("Attribute doesn't exist.");
+                    isquery[attrIndex] = true;
+                }
+            }
 
-        DB.crossClassQuery(fromClassId, destClassId, isquery, filter);
+            DB.crossClassQuery(fromClassId, destClassId, isquery, filter);
+        } catch (IllegalArgumentException e) {
+            DB.addMessage(e.getMessage());
+        }
     }
 
     @Override
     public void exitUpdateObject(OddlGrammarParser.UpdateObjectContext ctx) {
         String className = ctx.className().getText();
-        int classId = DB.getCatalog().getClassId(className);
-        if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
-            throw new IllegalArgumentException("Update class other than source class is not supported.");
-        Catalog.AttrTableTuple[] attrTuple = DB.getCatalog().getClassAttrList(classId);
-        Field[] values = new Field[attrTuple.length];
-        for (int i = 0; i < ctx.attrName().size(); i++) {
-            String attrName = ctx.attrName(i).getText();
-            int attrIndex = 0;
-            for (; attrIndex < attrTuple.length; attrIndex++) {
-                if (attrName.equals(attrTuple[attrIndex].getAttrName())) break;
+        try {
+            int classId = DB.getCatalog().getClassId(className);
+            if (DB.getCatalog().getClassType(classId) != Catalog.ClassType.SOURCECLASS)
+                throw new IllegalArgumentException("Update class other than source class is not supported.");
+            Catalog.AttrTableTuple[] attrTuple = DB.getCatalog().getClassAttrList(classId);
+            Field[] values = new Field[attrTuple.length];
+            for (int i = 0; i < ctx.attrName().size(); i++) {
+                String attrName = ctx.attrName(i).getText();
+                int attrIndex = 0;
+                for (; attrIndex < attrTuple.length; attrIndex++) {
+                    if (attrName.equals(attrTuple[attrIndex].getAttrName())) break;
+                }
+                if (attrIndex >= attrTuple.length)
+                    throw new IllegalArgumentException("Attribute doesn't exist.");
+                OddlGrammarParser.ValueContext value = ctx.value(i);
+                Field field;
+                if (value.TRUE() != null || value.FALSE() != null) {
+                    field = new BooleanField(Boolean.parseBoolean(value.getText()));
+                } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
+                    field = new FloatField(Float.parseFloat(value.getText()));
+                } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
+                    field = new IntField(Integer.parseInt(value.getText()));
+                } else {
+                    field = new CharField(value.getText());
+                }
+                if (field.getType() != attrTuple[attrIndex].getType())
+                    throw new IllegalArgumentException("Wrong type.");
+                values[attrIndex] = field;
             }
-            if (attrIndex >= attrTuple.length)
-                throw new IllegalArgumentException("Attribute doesn't exist.");
-            OddlGrammarParser.ValueContext value = ctx.value(i);
-            Field field;
-            if (value.TRUE() != null || value.FALSE() != null) {
-                field = new BooleanField(Boolean.parseBoolean(value.getText()));
-            } else if (value.SIGNED_REAL() != null || value.REAL() != null) {
-                field = new FloatField(Float.parseFloat(value.getText()));
-            } else if (value.DECIMAL() != null || value.SIGNED_DECIMAL() != null) {
-                field = new IntField(Integer.parseInt(value.getText()));
-            } else {
-                field = new CharField(value.getText());
-            }
-            if (field.getType() != attrTuple[attrIndex].getType())
-                throw new IllegalArgumentException("Wrong type.");
-            values[attrIndex] = field;
-        }
-        String updateRule = ctx.expression().getText();
+            String updateRule = ctx.expression().getText();
 
-        DB.updateObject(classId, updateRule, values);
+            DB.updateObject(classId, updateRule, values);
+
+        } catch (IllegalArgumentException e) {
+            DB.addMessage(e.getMessage());
+        }
     }
 }

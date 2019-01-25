@@ -3,7 +3,7 @@ CREATE CLASS singer
 
 
 CREATE SELECTDEPUTY popSinger
-    SELECT singerid AS popSingerid,
+    SELECT singeri AS popSingerid,
            singername AS popSingername
     FROM singer
     WHERE singertype = 'pop';
