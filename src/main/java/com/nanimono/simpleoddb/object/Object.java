@@ -62,7 +62,7 @@ public class Object implements Serializable {
         fields[i] = f;
     }
 
-    public void setField(Field[] fields) {
+    public void setFields(Field[] fields) {
         this.fields = fields;
     }
 

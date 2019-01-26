@@ -8,11 +8,21 @@ public enum TypeEnum implements Serializable {
         public int getSize() {
             return 1;
         }
+
+        @Override
+        public String toString() {
+            return "boolean";
+        }
     },
     CHAR_TYPE() {
         @Override
         public int getSize() {
             return DEFAULT_CHAR_LEN + 4;
+        }
+
+        @Override
+        public String toString() {
+            return "char";
         }
     },
     INT_TYPE() {
@@ -20,11 +30,10 @@ public enum TypeEnum implements Serializable {
         public int getSize() {
             return 4;
         }
-    },
-    LONG_TYPE() {
+
         @Override
-        public int getSize() {
-            return 8;
+        public String toString() {
+            return "int";
         }
     },
     FLOAT_TYPE() {
@@ -32,9 +41,16 @@ public enum TypeEnum implements Serializable {
         public int getSize() {
             return 4;
         }
+
+        @Override
+        public String toString() {
+            return "float";
+        }
     };
 
     public static final int DEFAULT_CHAR_LEN = 128;
 
     public abstract int getSize();
+
+    public abstract String toString();
 }

@@ -1,7 +1,5 @@
 package com.nanimono.simpleoddb.object;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.lang.Object;
 
 public class IntField implements Field {
@@ -20,13 +18,6 @@ public class IntField implements Field {
 
     @Override
     public boolean equals(Object field) { return ((IntField) field).value == value; }
-
-    @Override
-    public void serialize(DataOutputStream dos) throws IOException {
-        dos.writeInt(value);
-    }
-
-    // TODO compare method
 
     @Override
     public TypeEnum getType() {
