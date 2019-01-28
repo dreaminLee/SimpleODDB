@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SimpleODDBDemo</string>
+    <string name="edit_oddl_hint">Enter query here</string>
+    <string name="button_execute">Execute</string>
+    <string name="button_open">Open</string>
+    <string name="button_clear">Clear</string>
+    <string name="button_reset">Reset</string>
+</resources>

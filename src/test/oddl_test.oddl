@@ -1,14 +1,18 @@
-CREATE CLASS singer
-(singerid int,singername char(20),gender char(6),singertype char(10),collegeeducated boolean,property float,nation char(10)) ;
-
+CREATE CLASS singer(
+	singerid int,
+	singername char(20),
+	gender char(6),
+	singertype char(10),
+	collegeeducated boolean,
+	property float,
+	nation char(10));
 
 CREATE SELECTDEPUTY popSinger
-    SELECT singeri AS popSingerid,
-           singername AS popSingername
+    SELECT singerid AS popSingerid,
+           singername AS popSingername,
+		   property * 1000 AS property
     FROM singer
     WHERE singertype = 'pop';
-//set up a new class
-
 
 INSERT INTO singer VALUES
 (1,'LIUDEHUA','male','pop',false,1.00,'CHINA');
@@ -17,7 +21,7 @@ INSERT INTO singer VALUES
 (5,'LINYOUJIA','male','pop',true,2.00,'CHINA');
 
 INSERT INTO singer VALUES
-(2,'TAYLARSWIFT','female','pop',false,4.00,'AMERICA');
+(2,'TAYLORSWIFT','female','pop',false,4.00,'AMERICA');
 
 INSERT INTO singer VALUES
 (3,'ERO','female','jazz',false,4.00,'JAPAN');
@@ -26,41 +30,54 @@ INSERT INTO singer VALUES
 (4,'ZHOUJIELUN','male','pop',false,8.00,'CHINA');
 
 INSERT INTO singer VALUES
-(4,'AXS','female','folk',true,6.00,'CHINA');
-//insert some objects
+(6,'AXS','female','folk',true,6.00,'CHINA');
 
+CREATE SELECTDEPUTY ChinaSinger
+	SELECT singerid AS id,
+		   singername AS name
+	FROM singer
+	WHERE nation = 'CHINA';
 
+SELECT * FROM singer WHERE true;
+
+SELECT * FROM popSinger WHERE true;
+
+SELECT * FROM ChinaSinger WHERE true;
 
 DELETE FROM singer
 WHERE singerid=5;
 
 DELETE FROM singer
 WHERE singername='ERO';
-//delete some objects
 
+SELECT * FROM singer WHERE true;
+
+SELECT * FROM popSinger WHERE true;
 
 UPDATE singer SET singertype = 'folk'
 WHERE singerid = 1;
 
-UPDATE singer SET property = 6.00
+UPDATE singer SET property = 9.00
 WHERE singername='ZHOUJIELUN';
 
 UPDATE singer SET nation = 'JAPAN'
 WHERE singerid = 2;
-//update some objects
 
+SELECT * FROM singer WHERE true;
+
+SELECT * FROM popSinger WHERE true;
 
 SELECT singername,property
 FROM singer
 WHERE gender = 'female'
 AND singertype = 'folk';
-//simple query
-
 
 SELECT popSinger -> singer.nation
 FROM popSinger
 WHERE popSingername = 'ZHOUJIELUN';
-//transboundary query
+
+SELECT ChinaSinger->singer.property
+FROM ChinaSinger
+WHERE TRUE;
 
 DROP CLASS singer;
-//delete class

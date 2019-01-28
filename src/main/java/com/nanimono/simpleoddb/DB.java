@@ -10,10 +10,6 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Queue;
 
 public class DB {
@@ -58,20 +54,6 @@ public class DB {
             return queryResultToString(executor.getQueryResults());
         } catch (ParseCancellationException e) {
             return e.getMessage();
-        }
-    }
-
-    public static void main(String[] args) {
-        File file = new File("D:\\Codes\\ODDB\\grammar\\oddl_test.oddl");
-        try {
-            InputStream is = new FileInputStream(file);
-            byte[] raw = new byte[is.available()];
-            is.read(raw);
-            String input = new String(raw);
-            DB.reset();
-            System.out.println(DB.execute(input));
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }
