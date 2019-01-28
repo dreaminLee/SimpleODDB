@@ -9,6 +9,7 @@ import java.util.NoSuchElementException;
  */
 public class Object implements Serializable {
 
+
     private long oid;
 
     private int belongClassId;

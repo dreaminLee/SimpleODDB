@@ -1,15 +1,13 @@
 package com.nanimono.simpleoddb;
 
-import com.nanimono.simpleoddb.executorhelper.ExprCalc;
-import com.nanimono.simpleoddb.executorhelper.ExprTreeNode;
+import com.nanimono.simpleoddb.object.Field;
 import com.nanimono.simpleoddb.object.Object;
-import com.nanimono.simpleoddb.object.*;
+import com.nanimono.simpleoddb.object.TypeEnum;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import java.util.Stack;
 
 
 /**
@@ -20,572 +18,463 @@ class Catalog implements Serializable {
     //===================================成员================================================
 
     /**
-     * 类表，类在ArrayList中的索引即为该类的id
+     * 类表，类id ---> 类表元组
      */
-    private ArrayList<ClassTableTuple> classTable = new ArrayList<>();
+    private HashMap<Integer, ClassTableTuple> classTable = new HashMap<>();
 
     /**
-     * 类名到类id的映射，加速通过类名查找类
+     * 类名 ---> 类id
      */
     private HashMap<String, Integer> className2classId = new HashMap<>();
 
     /**
-     * 属性表，使用哈希表进行存储，类id作为key；属性作为一个数组存储，属性索引作为数组索引；id+属性索引可唯一确定一个属性
+     * 属性表，类id ---> 属性元组；属性作为一个数组存储，属性索引作为数组索引；类id+属性索引可唯一确定一个属性
      */
     private HashMap<Integer, AttrTableTuple[]> attrTable = new HashMap<>();
 
     /**
-     * 代理表，使用哈希表进行存储，代理类id作为key
+     * 代理表，代理类id ---> 代理表元组
      */
     private HashMap<Integer, DeputyTableTuple> deputyTable = new HashMap<>();
 
     /**
-     * 代理表，使用哈希表进行存储，被代理类id作为key
+     * 代理表，源类id ---> 代理表元组数组
      */
     private HashMap<Integer, ArrayList<DeputyTableTuple>> beDeputyTable = new HashMap<>();
 
     /**
-     * 切换规则表，使用哈希表进行存储，代理类id作为key；同一个类的切换规则存储在一个数组中，代理类属性索引作为数组索引
+     * 切换规则表，代理类id ---> 切换规则表元组；同一个类的切换规则存储在一个数组中，代理类属性索引作为数组索引
      */
     private HashMap<Integer, SwitchExprTableTuple[]> switchExprTable = new HashMap<>();
 
+    /**
+     * 类id管理相关成员
+     */
+    private int maxClassId = -1;
+    private Stack<Integer> unusedClassId = new Stack<>();
+
     //===================================成员辅助类============================================
 
-    public enum AttrType {REAL_ATTR, VIRTUAL_ATTR;}
-    public enum ClassType {UNALLOCATED, SOURCECLASS, SELECTDEPUTY}
+    public enum AttrType {REAL_ATTR, VIRTUAL_ATTR}
+    public enum ClassType {SOURCECLASS, SELECTDEPUTY}
 
     /**
      * 类表元组类，成员包括类id、类名、类类型、是否有子类
      */
-    class ClassTableTuple implements Serializable {
+    private class ClassTableTuple implements Serializable {
 
         private int classId;       // start from zero
         private String className;
         private ClassType classType;
-
         private boolean hasSubClass;
 
-        ClassTableTuple(int classId, String className, ClassType classType) {
+        private ClassTableTuple(int classId, String className, ClassType classType) {
             this.classId = classId;
             this.className = className;
             this.classType = classType;
             this.hasSubClass = false;
         }
-
-        int getClassId() {
-            return classId;
-        }
-
-        String getClassName() {
-            return className;
-        }
-
-        ClassType getClassType() {
-            return classType;
-        }
-
-        boolean isHasSubClass() {
-            return hasSubClass;
-        }
-        void setHasSubClass(boolean hasSubClass) {
-            this.hasSubClass = hasSubClass;
-        }
-
     }
 
     /**
      * 属性表元组类，成员包括所属类引用，属性名，属性大小，数据类型，属性类型（实属性、虚属性）
      */
-    class AttrTableTuple implements Serializable {
+    private class AttrTableTuple implements Serializable {
 
-        private ClassTableTuple belongClass;
+        private int belongClassId;
         private String attrName;
         private TypeEnum type;
         private int size;
         private AttrType attrType;
 
-        AttrTableTuple(ClassTableTuple belongClass, String attrName, TypeEnum type, int size, AttrType attrType) {
-            this.belongClass = belongClass;
+        private AttrTableTuple(int belongClassId, String attrName, TypeEnum type, int size, AttrType attrType) {
+            this.belongClassId = belongClassId;
             this.attrName = attrName;
             this.type = type;
-            if (type == TypeEnum.CHAR_TYPE) this.size = size;
+            if (type == TypeEnum.CHAR_TYPE) this.size = size + 2;
             else this.size = type.getSize();
             this.attrType = attrType;
         }
-
-        ClassTableTuple getBelongClass() {
-            return belongClass;
-        }
-
-        String getAttrName() {
-            return attrName;
-        }
-
-        TypeEnum getType() {
-            return type;
-        }
-
-        int getSize() {
-            return size;
-        }
-
-        AttrType getAttrType() {
-            return attrType;
-        }
-    }
-
-    /**
-     * 类属性迭代器
-     */
-    private class AttrIterator implements Iterator<AttrTableTuple> {
-        private int classId;
-        private int pos = 0;
-
-        public AttrIterator(int classId) {
-            this.classId = classId;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return attrTable.get(classId).length > pos;
-        }
-
-        @Override
-        public AttrTableTuple next() {
-            if (!hasNext()) throw new NoSuchElementException();
-            return attrTable.get(classId)[pos++];
-        }
-    }
-
-    AttrIterator getClassAttrIterator(String className) {
-        if (!className2classId.containsKey(className)) throw new IllegalArgumentException("Class doesn't exist.");
-        return new AttrIterator(getClassId(className));
-    }
-
-    AttrIterator getClassAttrIterator(int classId) {
-        return new AttrIterator(classId);
     }
 
     /**
      * 代理表元组类，成员包括代理类id、源类id、代理规则；代理规则使用字符串及二叉树进行存储。
      */
-    class DeputyTableTuple implements Serializable {
+    private class DeputyTableTuple implements Serializable {
 
         private int deputyClassId;
         private int sourceClassId;
         private String deputyRule;
-        private ExprTreeNode exprTreeRoot;
 
-        public DeputyTableTuple(int deputyClassId, int sourceClassId, String deputyRule, ExprTreeNode exprTreeRoot) {
+        private DeputyTableTuple(int deputyClassId, int sourceClassId, String deputyRule) {
             this.deputyClassId = deputyClassId;
             this.sourceClassId = sourceClassId;
             this.deputyRule = deputyRule;
-            this.exprTreeRoot = exprTreeRoot;
-        }
-
-        public int getDeputyClassId() { return deputyClassId; }
-
-        public int getSourceClassId() { return sourceClassId; }
-
-        public String getDeputyRule() { return deputyRule; }
-
-        public ExprTreeNode getExprTreeRoot() {
-            return exprTreeRoot;
         }
     }
 
     /**
      * 切换规则表元组类，成员包括代理类id、源类id、代理类属性索引、切换规则；切换规则使用字符串及二叉树进行存储。
      */
-    class SwitchExprTableTuple implements Serializable {
+    private class SwitchExprTableTuple implements Serializable {
 
         private int deputyClassId;
         private int sourceClassId;
         private int deputyAttrId;
-        private String switchRule;
-        private ExprTreeNode exprTreeRoot;
+        private String switchExpr;
 
-        public SwitchExprTableTuple(int deputyclassId,
+        private SwitchExprTableTuple(int deputyclassId,
                                     int sourceClassId,
                                     int deputyAttrId,
-                                    String switchRule,
-                                    ExprTreeNode exprTreeRoot) {
+                                    String switchExpr) {
             this.deputyClassId = deputyclassId;
             this.sourceClassId = sourceClassId;
             this.deputyAttrId = deputyAttrId;
-            this.switchRule = switchRule;
-            this.exprTreeRoot = exprTreeRoot;
+            this.switchExpr = switchExpr;
         }
-
-        public int getDeputyClassId() {
-            return deputyClassId;
-        }
-
-        public int getSourceClassId() {
-            return sourceClassId;
-        }
-
-        public int getDeputyAttrId() {
-            return deputyAttrId;
-        }
-
-        public String getSwitchRule() {
-            return switchRule;
-        }
-
-        public ExprTreeNode getExprTreeRoot() { return exprTreeRoot; }
     }
 
     //======================================类方法===============================================
-
-    ClassTableTuple getClassTuple(int classId) { return classTable.get(classId); }
-
-    /**
-     * 获取类的属性列表
-     *
-     * @param classId 类id
-     * @return 类的属性列表
-     */
-    AttrTableTuple[] getClassAttrList(int classId) {
-        return attrTable.get(classId);
-    }
-
-    /**
-     * 获取代理类的切换规则
-     *
-     * @param classId 类id
-     * @return
-     */
-    SwitchExprTableTuple[] getSwitchRuleList(int classId) {
-        return switchExprTable.get(classId);
-    }
-
-    /**
-     * 获取代理类的代理规则
-     *
-     * @param classId 类id
-     * @return
-     */
-    DeputyTableTuple getDeputyRule(int classId) {
-        return deputyTable.get(classId);
-    }
-
-    /**
-     * 获取被代理类的代理规则列表
-     *
-     * @param classId 类id
-     * @return
-     */
-    ArrayList<DeputyTableTuple> getBeDeputyRule(int classId) {
-        return beDeputyTable.get(classId);
-    }
 
     /**
      * 获取类id
      *
      * @param className 类名
-     * @return
+     * @return 类存在返回类id，不存在返回-1
      */
-    Integer getClassId(String className) {
-        if (!className2classId.containsKey(className)) throw new IllegalArgumentException("Class doesn't exist.");
+    int getClassId(String className) {
+        if (className2classId.get(className) == null) return -1;
         return className2classId.get(className);
     }
 
-    String getClassName(int classId) {
-        if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
-            throw new IllegalArgumentException("Class doesn't exist.");
-        return classTable.get(classId).className;
-    }
-
-    private boolean isClassExist(int classId) {
-        return (classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED);
-    }
-
     /**
-     * 获取类类型
+     * 获取类的类型
      *
      * @param classId 类id
-     * @return
+     * @return 类不存在返回null
      */
     ClassType getClassType(int classId) {
-        return classTable.get(classId).classType;
+        try {
+            return classTable.get(classId).classType;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     /**
-     * 类是否有子类
      *
      * @param classId 类id
-     * @return
+     * @return 若类存在子类返回true；若不存在子类或类不存在则返回null
      */
-    boolean getClassHasSubclass(int classId) {
-        return classTable.get(classId).hasSubClass;
+    Boolean isClassHasSubclass(int classId) {
+        try {
+            return classTable.get(classId).hasSubClass;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取类属性个数
+     *
+     * @param classId 类id
+     * @return 类属性个数
+     */
+    int getClassAttrNumber(int classId) {
+        return attrTable.get(classId).length;
+    }
+
+    /**
+     * 获取类属性数据类型
+     *
+     * @param classId 类id
+     * @param attrIndex 属性索引
+     * @return 属性数据类型；若类不存在或索引超出范围则返回null
+     */
+    TypeEnum getClassAttrDataType(int classId, int attrIndex) {
+        try {
+            return attrTable.get(classId)[attrIndex].type;
+        } catch (NullPointerException | IndexOutOfBoundsException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取类属性数据大小
+     *
+     * @param classId 类id
+     * @param attrIndex 属性索引
+     * @return 属性数据大小；若类不存在或索引超出范围则返回-1
+     */
+    int getClassAttrSize(int classId, int attrIndex) {
+        try {
+            return attrTable.get(classId)[attrIndex].size;
+        } catch (NullPointerException | IndexOutOfBoundsException e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    /**
+     * 获取类属性名
+     *
+     * @param classId 类id
+     * @param attrIndex 属性索引
+     * @return 属性名；若类不存在或索引超出范围则返回null
+     */
+    String getClassAttrName(int classId, int attrIndex) {
+        try {
+            return attrTable.get(classId)[attrIndex].attrName;
+        } catch (NullPointerException | IndexOutOfBoundsException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取类属性数据大小
+     *
+     * @param classId 类id
+     * @param attrName 类名
+     * @return 属性数据大小；若类不存在或属性不存在则返回-1
+     */
+    int getClassAttrSize(int classId, String attrName) {
+        try {
+            for (int i = 0; i < attrTable.get(classId).length; i++) {
+                if (attrName.equals(attrTable.get(classId)[i].attrName))
+                    return attrTable.get(classId)[i].size;
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        } finally {
+            return -1;
+        }
+    }
+
+    /**
+     * 获取一个代理类的源类id
+     *
+     * @param deputyClassId 代理类id
+     * @return 若不存在则返回-1
+     */
+    int getSourceClassId(int deputyClassId) {
+        try {
+            return deputyTable.get(deputyClassId).sourceClassId;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    /**
+     * 获取一个类的子类列表
+     * @param classId 类id
+     * @return 若不存在子类或类不存在则返回null
+     */
+    ArrayList<Integer> getSubclassList(int classId) {
+        try {
+            if (beDeputyTable.get(classId).isEmpty()) return null;
+            ArrayList<Integer> subclassList = new ArrayList<>();
+            for (DeputyTableTuple tuple : beDeputyTable.get(classId)) {
+                subclassList.add(tuple.deputyClassId);
+            }
+            return subclassList;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取一个代理类的代理规则
+     * @param classId 代理类id
+     * @return 若不存在返回null
+     */
+    String getDeputyRule(int classId) {
+        try {
+            return deputyTable.get(classId).deputyRule;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取代理类的切换表达式列表，按属性顺序排列
+     * @param classId 代理类id
+     * @return 若不存在则返回null
+     */
+    String[] getSwitchExprs(int classId) {
+        try {
+            String[] switchExprs = new String[switchExprTable.get(classId).length];
+            for (int i = 0; i < switchExprs.length; i++) {
+                switchExprs[i] = switchExprTable.get(classId)[i].switchExpr;
+            }
+            return switchExprs;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取一个类属性名到类型的映射
+     * @param classId 类id
+     * @return 若不存在则返回null
+     */
+    HashMap<String, TypeEnum> getAttrName2Type(int classId) {
+        try {
+            HashMap<String, TypeEnum> attrName2Type = new HashMap<>();
+            for (int i = 0; i < attrTable.get(classId).length; i++) {
+                attrName2Type.put(attrTable.get(classId)[i].attrName, attrTable.get(classId)[i].type);
+            }
+            return attrName2Type;
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 获取下一个可用的类id
+     * @return 类id
+     */
+    private int getNextClassId() {
+        if (unusedClassId.empty()) return ++maxClassId;
+        else return unusedClassId.pop();
     }
 
     /**
      * 添加新的源类
-     *
-     * @param className    类名
-     * @param attrNameList 属性名
-     * @param typeList     数据类型
+     * @param className 类名
+     * @param attrNameList 属性名列表
+     * @param typeList 数据类型列表
+     * @param sizeList 数据大小列表（仅对char类型有效）
      */
-    void addSourceClass(String className, String[] attrNameList, Type[] typeList) throws IllegalArgumentException {
+    void addSourceClass(String className, String[] attrNameList, TypeEnum[] typeList, int[] sizeList) {
 
-        // 参数是否合法
-        if (attrNameList == null || attrNameList.length == 0) {
-            throw new IllegalArgumentException("Attribute name list cannot empty.");
-        }
-        if (typeList == null || typeList.length == 0) {
-            throw new IllegalArgumentException("Type list cannot empty.");
-        }
-        if (typeList.length != attrNameList.length) {
-            throw new IllegalArgumentException("Type list and attribute name list must have the same size");
-        }
+        // 修改classTable
+        int classId = getNextClassId();
+        className2classId.put(className, classId);
+        classTable.put(classId, new ClassTableTuple(classId, className, ClassType.SOURCECLASS));
 
-        // 属性是否有相同名
-        for (int i = 0; i < attrNameList.length; i++) {
-            for (int j = i + 1; j < attrNameList.length; j++) {
-                if (attrNameList[i].equals(attrNameList[j]))
-                    throw new IllegalArgumentException("Duplicate attribute's name.");
-            }
-        }
-
-        // classTable中的是否有同名类；得到新建类存储的位置，低位置优先
-        int index = classTable.size();
-        for (ClassTableTuple tuple : classTable) {
-            if (tuple.classType == ClassType.UNALLOCATED) {
-                if (tuple.classId < index)
-                    index = tuple.classId;
-                continue;
-            }
-            if (tuple.className.equals(className)) {
-                throw new IllegalArgumentException("Class already exists.");
-            }
-        }
-
-        // 修改 ClassTable
-        if (index == classTable.size()) {
-            classTable.add(new ClassTableTuple(index, className, ClassType.SOURCECLASS));
-        } else {
-            // 直接修改之前被删除的类的条目
-            ClassTableTuple tuple = classTable.get(index);
-            tuple.className = className;
-            tuple.classType = ClassType.SOURCECLASS;
-            tuple.hasSubClass = false;
-        }
-
-        className2classId.put(className, classTable.get(index).classId);
-
-        // 修改 AttrTable
+        // 修改attrTable
         AttrTableTuple[] attrList = new AttrTableTuple[typeList.length];
         for (int i = 0; i < attrList.length; i++) {
-            attrList[i] = new AttrTableTuple(classTable.get(index),
+            attrList[i] = new AttrTableTuple(classId,
                     attrNameList[i],
-                    typeList[i].getTypeEnum(),
-                    typeList[i].getSize(),
+                    typeList[i],
+                    sizeList[i],
                     AttrType.REAL_ATTR);
         }
-        attrTable.put(index, attrList);
+        attrTable.put(classId, attrList);
+
+        // 修改beDeputyTable
+        beDeputyTable.put(classId, new ArrayList<>());
     }
 
     /**
-     * 添加新的选择代理类，目前仅实现了虚属性
-     *
-     * @param className    新建类名
-     * @param sClassName   源类名
-     * @param switchExprs  切换表达式
-     * @param attrNameList 属性名
-     * @param deputyRule  代理规则
-     * @param exprTrees    表达式树
+     * 添加新的选择代理类，仅实现虚属性
+     * @param className 类名
+     * @param sClassId 源类id
+     * @param switchExprs 切换表达式列表
+     * @param attrNameList 属性列表
+     * @param typeList 数据类型列表
+     * @param sizeList 数据大小列表（仅对char类型有效）
+     * @param deputyRule 代理规则
      */
     void addSelectDeputyClass(String className,
-                                     String sClassName,
+                                     int sClassId,
                                      String[] switchExprs,
                                      String[] attrNameList,
-                                     String deputyRule,
-                                     ExprTreeNode[] exprTrees) throws IllegalArgumentException {
-        // 检查参数是否合法
-        if (attrNameList == null || attrNameList.length == 0) {
-            throw new IllegalArgumentException("Attribute name list cannot be empty.");
-        }
-        if (switchExprs == null || switchExprs.length == 0) {
-            throw new IllegalArgumentException("Switching expression list cannot be empty");
-        }
-        if (exprTrees == null || exprTrees.length == 0) {
-            throw new IllegalArgumentException("Expression tree cannot be empty.");
-        }
-        if (deputyRule == null || deputyRule.length() == 0) {
-            throw new IllegalArgumentException("Deputy rule cannot be empty.");
-        }
-        if (!(switchExprs.length == attrNameList.length && switchExprs.length + 1 == exprTrees.length)) {
-            throw new IllegalArgumentException("Switching expression list and attribute name list and expression trees must have the same size");
-        }
-
-        // 是否存在同名类；查找源类；得到新建类的存储位置，低位置优先
-        ClassTableTuple sourceClass = null;
-        int classTableIndex = classTable.size();
-        for (ClassTableTuple tuple : classTable) {
-            if (tuple.classType == ClassType.UNALLOCATED) {
-                if (tuple.classId < classTableIndex)
-                    classTableIndex = tuple.classId;
-                continue;
-            }
-            if (tuple.className.equals(sClassName)) {
-                sourceClass = tuple;
-            }
-            if (tuple.className.equals(className)) {
-                throw new IllegalArgumentException("Class already exists.");
-            }
-        }
-        if (sourceClass == null) {
-            throw new IllegalArgumentException("Source class doesn't exist.");
-        }
-
-        // 检查表达式树是否合法
-        AttrTableTuple[] sourceClassAttrs = attrTable.get(sourceClass.classId);
-        HashMap<String, TypeEnum> sourceAttrName2Type = new HashMap<>();
-        for (AttrTableTuple tuple : sourceClassAttrs) sourceAttrName2Type.put(tuple.attrName, tuple.type);
-        // where 表达式必须是布尔型
-        if (ExprTreeNode.getTreeType(exprTrees[exprTrees.length - 1], sourceAttrName2Type) != TypeEnum.BOOLEAN_TYPE)
-            throw new IllegalArgumentException("Where clause illegal.");
-        // 切换规则表达式必须有类型
-        Type[] deputyClassAttrTypes = new Type[exprTrees.length - 1];
-        for (int i = 0; i < exprTrees.length - 1; i++) {
-            ExprTreeNode tree = exprTrees[i];
-            TypeEnum treeType;
-            if ((treeType = ExprTreeNode.getTreeType(tree, sourceAttrName2Type)) == null) {
-                throw new IllegalArgumentException("Expression illegal.");
-            }
-            else {
-                deputyClassAttrTypes[i] = new Type(treeType);
-                if (treeType == TypeEnum.CHAR_TYPE) {
-                    for (AttrTableTuple tuple : sourceClassAttrs) {
-                        if (tree.getData().equals(tuple.attrName)) {
-                            deputyClassAttrTypes[i].setSize(tuple.size);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+                                     TypeEnum[] typeList,
+                                     int[] sizeList,
+                                     String deputyRule) {
 
         // 修改classTable
-        sourceClass.hasSubClass = true;
-        if (classTableIndex == classTable.size()) {
-            classTable.add(new ClassTableTuple(classTableIndex, className, ClassType.SELECTDEPUTY));
-        } else {
-            ClassTableTuple tuple = classTable.get(classTableIndex);
-            tuple.className = className;
-            tuple.classType = ClassType.SELECTDEPUTY;
-            tuple.hasSubClass = false;
-        }
+        classTable.get(sClassId).hasSubClass = true;
+        int classId = getNextClassId();
+        className2classId.put(className, classId);
+        classTable.put(classId, new ClassTableTuple(classId, className, ClassType.SELECTDEPUTY));
 
-        className2classId.put(className, classTableIndex);
-
-        // 修改AttrTable
+        // 修改attrTable
         AttrTableTuple[] attrList = new AttrTableTuple[attrNameList.length];
         for (int i = 0; i < attrList.length; i++) {
-            attrList[i] = new AttrTableTuple(classTable.get(classTableIndex),
+            attrList[i] = new AttrTableTuple(classId,
                     attrNameList[i],
-                    deputyClassAttrTypes[i].getTypeEnum(),
-                    deputyClassAttrTypes[i].getSize(),
+                    typeList[i],
+                    sizeList[i],
                     AttrType.VIRTUAL_ATTR);
         }
-        attrTable.put(classTableIndex, attrList);
+        attrTable.put(classId, attrList);
 
-        // 修改DeputyTable
-        DeputyTableTuple deputyTuple = new DeputyTableTuple(classTableIndex,
-                sourceClass.classId,
-                deputyRule,
-                exprTrees[exprTrees.length - 1]);
-        deputyTable.put(classTableIndex, deputyTuple);
-        if (!beDeputyTable.containsKey(sourceClass.classId)) beDeputyTable.put(sourceClass.classId, new ArrayList<DeputyTableTuple>());
-        beDeputyTable.get(sourceClass.classId).add(deputyTuple);
+        // 修改deputyTable beDeputyTable
+        DeputyTableTuple deputyTuple = new DeputyTableTuple(classId,
+                sClassId,
+                deputyRule);
+        deputyTable.put(classId, deputyTuple);
+        beDeputyTable.get(sClassId).add(deputyTuple);
 
-        // 修改SwitchExprTable
+        // 修改switchExprTable
         SwitchExprTableTuple[] switchExprList = new SwitchExprTableTuple[attrList.length];
         for (int i = 0; i < switchExprList.length; i++) {
-            switchExprList[i] = new SwitchExprTableTuple(classTableIndex,
-                    getClassId(sClassName),
+            switchExprList[i] = new SwitchExprTableTuple(classId,
+                    sClassId,
                     i,
-                    switchExprs[i],
-                    exprTrees[i]);
+                    switchExprs[i]);
         }
-        switchExprTable.put(classTableIndex, switchExprList);
-
-        HashMap<String, Field> var2field = new HashMap<>();
-        for (long sourceoid : DB.getObjectStorage().getObjectList(sourceClass.getClassId())) {
-            Iterator<Field> fieldIte = DB.getObjectStorage().getObject(sourceoid).getFieldIterator();
-            for (int i = 0; i < sourceClassAttrs.length; i++) {
-                var2field.put(sourceClassAttrs[i].getAttrName(), DB.getObjectStorage().getObject(sourceoid).getField(i));
-            }
-            ExprCalc calc = new ExprCalc(var2field);
-            Field result = calc.calculate(deputyRule);
-            if (((BooleanField)result).getValue()) {
-                Object deputyObject = newObject(classTableIndex);
-                deputyObject.setOid(DB.getObjectStorage().nextOid());
-                for (int j = 0; j < switchExprList.length; j++) {
-                    Field field = calc.calculate(switchExprList[j].getSwitchRule());
-                    deputyObject.setField(j, field);
-                }
-                DB.getObjectStorage().insertObject(deputyObject);
-                DB.getObjectStorage().insertBiPointer(sourceoid, deputyObject.getOid());
-            }
-        }
+        switchExprTable.put(classId, switchExprList);
     }
 
     /**
      * 删除类；仅修改系统表
      *
-     * @param className 类名
+     * @param classId 类id
      */
-    void dropClass(String className) {
-        if (!className2classId.containsKey(className))
-            throw new IllegalArgumentException("Class doesn't exist.");
+    void dropClass(int classId) {
 
         // 先删除子类
-        ClassTableTuple classToDelete = classTable.get(getClassId(className));
+        ClassTableTuple classToDelete = classTable.get(classId);
         if (classToDelete.hasSubClass) {
             while (!beDeputyTable.get(classToDelete.classId).isEmpty())
-                dropClass(beDeputyTable.get(classToDelete.classId).remove(0).deputyClassId);
-            beDeputyTable.remove(classToDelete.classId);
+                dropClass(beDeputyTable.get(classId).remove(0).deputyClassId);
+            beDeputyTable.remove(classId);
         }
 
-        // 若是代理类，删除切换规则、代理规则中的条目
+        // 若是代理类，删除switchExprTable、deputyTable中的条目；若源类不再存在代理类，修改源类相关属性
         if (classToDelete.classType != ClassType.SOURCECLASS) {
             switchExprTable.remove(classToDelete.classId);
-            //beDeputyTable.remove(deputyTable.get(classToDelete.classId).sourceClassId);
-            if (beDeputyTable.get(deputyTable.get(classToDelete.classId).sourceClassId).isEmpty())
-                classTable.get(deputyTable.get(classToDelete.classId).sourceClassId).hasSubClass = false;
-            deputyTable.remove(classToDelete.classId);
+            int sClassId = deputyTable.get(classId).sourceClassId;
+            beDeputyTable.get(sClassId).remove(deputyTable.remove(classId));
+            if (beDeputyTable.get(sClassId).isEmpty()) {
+                classTable.get(sClassId).hasSubClass = false;
+            }
         }
 
         // 删除属性表、类表中的条目
         attrTable.remove(classToDelete.classId);
-        classTable.get(classToDelete.classId).classType = ClassType.UNALLOCATED;
-        classTable.get(classToDelete.classId).className = null;
-        className2classId.remove(className);
+        className2classId.remove(classToDelete.className);
+        classTable.remove(classId);
+
+        if (classId == maxClassId) maxClassId -= 1;
+        else unusedClassId.push(classId);
     }
 
-    private void dropClass(int classId) {
-        if (!(classId >= 0 && classId < classTable.size() && classTable.get(classId).classType != ClassType.UNALLOCATED))
-            throw new IllegalArgumentException("Class doesn't exist");
-        dropClass(classTable.get(classId).className);
-    }
-
-    boolean isDirectDeputy(int deputyClassId, int sourceClassId) {
-        return deputyTable.get(deputyClassId) != null && deputyTable.get(deputyClassId).getSourceClassId() == sourceClassId;
-    }
-
+    /**
+     * 根据类属性定义返回一个对象
+     * @param classId 类id
+     * @return
+     */
     Object newObject(int classId) {
-        if (!isClassExist(classId))
-            throw new IllegalArgumentException("Class doesn't exist.");
         Object object = new Object();
         object.setBelongClassId(classId);
-        object.setField(new Field[getClassAttrList(classId).length]);
+        object.setFields(new Field[attrTable.get(classId).length]);
         int len = 0;
-        Iterator<AttrTableTuple> attrIterator = DB.getCatalog().getClassAttrIterator(classId);
-        while (attrIterator.hasNext()) {
-            len += attrIterator.next().getSize();
+        for (int i = 0; i < attrTable.get(classId).length; i++) {
+            len += attrTable.get(classId)[i].size;
         }
         object.setLen(len);
         return object;

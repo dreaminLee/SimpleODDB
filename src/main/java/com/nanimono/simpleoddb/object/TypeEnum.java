@@ -48,7 +48,7 @@ public enum TypeEnum implements Serializable {
         }
     };
 
-    public static final int DEFAULT_CHAR_LEN = 128;
+    public static final int DEFAULT_CHAR_LEN = 256;
 
     public abstract int getSize();
 

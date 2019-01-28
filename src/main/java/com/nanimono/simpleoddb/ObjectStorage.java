@@ -9,6 +9,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Stack;
 
 class ObjectStorage implements Serializable {
 
@@ -22,10 +23,15 @@ class ObjectStorage implements Serializable {
      */
     private HashMap<Integer, ArrayList<Long>> classId2oidList = new HashMap<>();
 
-    private long nextOid = 0;
+    /**
+     * oid管理相关成员
+     */
+    private long maxOid = -1;
+    private Stack<Long> unusedOid = new Stack<>();
 
-    long nextOid() {
-        return nextOid++;
+    private long getNextOid() {
+        if (unusedOid.empty()) return ++maxOid;
+        else return unusedOid.pop();
     }
 
     /**
@@ -38,78 +44,109 @@ class ObjectStorage implements Serializable {
      */
     private HashMap<Long, ArrayList<Long>> sourceoid2deputyoid = new HashMap<>();
 
+    /**
+     * 新建一个类的对象列表
+     *
+     * @param classId 类id
+     */
     void addObjectList(int classId) {
         classId2oidList.put(classId, new ArrayList<Long>());
     }
 
+    /**
+     * 删除一个类及其子类的对象列表
+     *
+     * @param classId
+     */
     void removeObjectList(int classId) {
-        if (DB.getCatalog().getClassHasSubclass(classId)) {
-            for (Catalog.DeputyTableTuple tuple : DB.getCatalog().getBeDeputyRule(classId))
-                removeObjectList(tuple.getDeputyClassId());
+        if (DB.getCatalog().isClassHasSubclass(classId)) {
+            for (int subclassId : DB.getCatalog().getSubclassList(classId))
+                removeObjectList(subclassId);
         }
         classId2oidList.remove(classId);
     }
 
-    ArrayList<Long> getObjectList(int classId) {
-        return classId2oidList.get(classId);
-    }
-
-    Object getObject(long oid) {
-        return oid2Object.get(oid);
-    }
-
-    void insertBiPointer(long sourceoid, long deputyoid) {
-        deputyoid2sourceoid.put(deputyoid, sourceoid);
-        sourceoid2deputyoid.get(sourceoid).add(deputyoid);
-    }
-
+    /**
+     * 插入对象；若存在子类且满足代理规则则插入代理对象
+     *
+     * @param object 对象
+     */
     void insertObject(Object object) {
 
-        // 插入源对象并根据代理规则判断是否创建新代理对象并插入
-        long nextOid = nextOid();
-        object.setOid(nextOid);
+        long oid = getNextOid();
+        object.setOid(oid);
         int classId = object.getBelongClassId();
-        classId2oidList.get(classId).add(nextOid);
-        sourceoid2deputyoid.put(nextOid, new ArrayList<Long>());
-        oid2Object.put(nextOid, object);
+        classId2oidList.get(classId).add(oid);
+        sourceoid2deputyoid.put(oid, new ArrayList<Long>());
+        oid2Object.put(oid, object);
 
-        if (DB.getCatalog().getClassHasSubclass(classId)) {
-            HashMap<String, Field> var2field = new HashMap<>();
-            Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(classId);
-            for (int i = 0; i < attrList.length; i++) {
-                var2field.put(attrList[i].getAttrName(), object.getField(i));
-            }
-            Iterator<Catalog.DeputyTableTuple> iterator = DB.getCatalog().getBeDeputyRule(classId).iterator();
-            while (iterator.hasNext()) {
-                Catalog.DeputyTableTuple deputyTuple = iterator.next();
-                ExprCalc calc = new ExprCalc(var2field);
-                Field result = calc.calculate(deputyTuple.getDeputyRule());
-                if (((BooleanField) result).getValue()) {
-                    Object deputyObject = DB.getCatalog().newObject(deputyTuple.getDeputyClassId());
-                    Catalog.SwitchExprTableTuple[] switchExprList = DB.getCatalog().getSwitchRuleList(deputyTuple.getDeputyClassId());
-                    for (int i = 0; i < switchExprList.length; i++) {
-                        Field field = calc.calculate(switchExprList[i].getSwitchRule());
-                        deputyObject.setField(i, field);
-                    }
-                    insertObject(deputyObject);
-                    deputyoid2sourceoid.put(deputyObject.getOid(), object.getOid());
-                    sourceoid2deputyoid.get(object.getOid()).add(deputyObject.getOid());
-                }
+        if (DB.getCatalog().isClassHasSubclass(classId)) {
+            for (int deputyClassId : DB.getCatalog().getSubclassList(classId)) {
+                objectPropagation(oid, deputyClassId);
             }
         }
     }
 
-    void deleteObject(int classId, String deputyRule) {
-        ArrayList<Long> objectToDelete = filter(classId, deputyRule);
+    /**
+     * 对某个代理类进行更新迁移
+     *
+     * @param classId 代理类id
+     */
+    void classPropagation(int classId) {
+
+        int sourceClassId = DB.getCatalog().getSourceClassId(classId);
+        if (!classId2oidList.get(sourceClassId).isEmpty()) {
+            for (long oid : classId2oidList.get(sourceClassId)) {
+                objectPropagation(oid, classId);
+            }
+        }
+    }
+
+    /**
+     * 将某个源对象向其某个代理类进行更新迁移
+     *
+     * @param oid
+     * @param deputyClassId 代理类id
+     */
+    void objectPropagation(long oid, int deputyClassId) {
+
+        ExprCalc calc = new ExprCalc(getAttrName2Data(oid));
+        Field createDeputyObject = calc.calculate(DB.getCatalog().getDeputyRule(deputyClassId));
+        if (((BooleanField) createDeputyObject).getValue()) {
+            Object deputyObject = DB.getCatalog().newObject(deputyClassId);
+            String[] switchExprs = DB.getCatalog().getSwitchExprs(deputyClassId);
+            for (int i = 0; i < switchExprs.length; i++) {
+                Field field = calc.calculate(switchExprs[i]);
+                deputyObject.setField(i, field);
+            }
+            insertObject(deputyObject);
+            deputyoid2sourceoid.put(deputyObject.getOid(), oid);
+            sourceoid2deputyoid.get(oid).add(deputyObject.getOid());
+        }
+    }
+
+    /**
+     * 删除某个类中满足条件的对象
+     *
+     * @param classId 类id
+     * @param deleteCond 删除条件
+     */
+    void deleteObject(int classId, String deleteCond) {
+        ArrayList<Long> objectToDelete = filter(classId, deleteCond);
         if (objectToDelete.size() == 0) return;
         for (Long oid : objectToDelete) {
             deleteObject(oid);
         }
     }
 
+    /**
+     * 删除对象并删除其所有代理对象
+     *
+     * @param oid 类id
+     */
     private void deleteObject(long oid) {
         int classId = oid2Object.get(oid).getBelongClassId();
-        if (DB.getCatalog().getClassHasSubclass(classId)) {
+        if (DB.getCatalog().isClassHasSubclass(classId)) {
             for (long deputyoid : sourceoid2deputyoid.get(oid)) {
                 deleteObject(deputyoid);
                 deputyoid2sourceoid.remove(deputyoid);
@@ -118,27 +155,38 @@ class ObjectStorage implements Serializable {
         sourceoid2deputyoid.remove(oid);
         classId2oidList.get(oid2Object.get(oid).getBelongClassId()).remove(oid);
         oid2Object.remove(oid);
+
+        if (oid == maxOid) maxOid -= 1;
+        else unusedOid.push(oid);
     }
 
-    private ArrayList<Long> filter(int classId, String filterRule) {
+    /**
+     * 获取某个类中满足过滤条件的对象列表
+     *
+     * @param classId 类id
+     * @param filterCond 过滤条件
+     * @return
+     */
+    private ArrayList<Long> filter(int classId, String filterCond) {
         Iterator<Long> it = classId2oidList.get(classId).iterator();
-        HashMap<String, Field> var2field = new HashMap<>();
-        Catalog.AttrTableTuple[] attrList = DB.getCatalog().getClassAttrList(classId);
         ArrayList<Long> objectFiltered = new ArrayList<>();
         while (it.hasNext()) {
             Object current = oid2Object.get(it.next());
-            for (int i = 0; i < attrList.length; i++) {
-                var2field.put(attrList[i].getAttrName(),
-                        current.getField(i));
-            }
-            ExprCalc calc = new ExprCalc(var2field);
-            if (((BooleanField)calc.calculate(filterRule)).getValue()) {
+            ExprCalc calc = new ExprCalc(getAttrName2Data(current.getOid()));
+            if (((BooleanField)calc.calculate(filterCond)).getValue()) {
                 objectFiltered.add(current.getOid());
             }
         }
         return objectFiltered;
     }
 
+    /**
+     * 更新某个类中满足条件的对象的某些域
+     *
+     * @param classId 类id
+     * @param updateRule 更新条件
+     * @param fields 域；若不更新则对应索引下为null
+     */
     void updateObject(int classId, String updateRule, Field[] fields) {
         ArrayList<Long> oidToUpdate = filter(classId, updateRule);
         if (oidToUpdate.size() == 0) return;
@@ -153,36 +201,48 @@ class ObjectStorage implements Serializable {
         }
     }
 
+    /**
+     * 清空某个类中的所有对象及其代理对象
+     *
+     * @param classId 类id
+     */
     void clearObject(int classId) {
         while (!classId2oidList.get(classId).isEmpty()) {
             deleteObject(classId2oidList.get(classId).get(0));
         }
     }
 
-    String simpleQuery(int classId, boolean[] isQueryList, String filter) {
+    /**
+     * 简单查询
+     *
+     * @param classId 类id
+     * @param isQueryList 与属性一一对应；数组中与属性对应的索引的值为真代表查询该属性
+     * @param queryCond 查询条件
+     * @return 第一行为属性名；其余行为数据
+     */
+    String simpleQuery(int classId, boolean[] isQueryList, String queryCond) {
         ArrayList<Long> oidQuery;
-        if (filter != null)
-            oidQuery = filter(classId, filter);
+        if (queryCond != null)
+            oidQuery = filter(classId, queryCond);
         else
             oidQuery = classId2oidList.get(classId);
         StringBuilder builder = new StringBuilder();
-        builder.append("|  ");
-        for (int i = 0; i < isQueryList.length; i++) {
-            Catalog.AttrTableTuple tuple = DB.getCatalog().getClassAttrList(classId)[i];
+        builder.append("| ");
+        for (int i = 0; i < isQueryList.length; i++) { ;
             if (isQueryList[i]) {
-                builder.append(tuple.getAttrName());
-                builder.append("  |  ");
+                builder.append(DB.getCatalog().getClassAttrName(classId, i));
+                builder.append(" | ");
             }
         }
         builder.append("\r\n");
         if (oidQuery.size() == 0) return new String(builder);
         for (long oid : oidQuery) {
-            builder.append("|  ");
+            builder.append("| ");
             Object current = oid2Object.get(oid);
             for (int i = 0; i < isQueryList.length; i++) {
                 if (isQueryList[i]) {
                     builder.append(current.getField(i).toString());
-                    builder.append("  |  ");
+                    builder.append(" | ");
                 }
             }
             builder.append("\r\n");
@@ -190,8 +250,17 @@ class ObjectStorage implements Serializable {
         return new String(builder);
     }
 
-    String crossClassQuery(int fromClassId, int destClassId, boolean[] isQueryList, String filter) {
-        ArrayList<Long> oidQuery = filter(fromClassId, filter);
+    /**
+     * 跨类查询
+     *
+     * @param fromClassId 源类id
+     * @param destClassId 目的类id
+     * @param isQueryList 与目的类属性一一对应；数组中与属性对应的索引的值为真代表查询该属性
+     * @param queryCond
+     * @return
+     */
+    String crossClassQuery(int fromClassId, int destClassId, boolean[] isQueryList, String queryCond) {
+        ArrayList<Long> oidQuery = filter(fromClassId, queryCond);
         if (oidQuery.size() == 0) return null;
         if (DB.getCatalog().getClassType(fromClassId) == Catalog.ClassType.SELECTDEPUTY) {
             ArrayList<Long> newoidQuery = new ArrayList<>();
@@ -213,27 +282,41 @@ class ObjectStorage implements Serializable {
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("|  ");
+        builder.append("| ");
         for (int i = 0; i < isQueryList.length; i++) {
-            Catalog.AttrTableTuple tuple = DB.getCatalog().getClassAttrList(destClassId)[i];
             if (isQueryList[i]) {
-                builder.append(tuple.getAttrName());
-                builder.append("  |  ");
+                builder.append(DB.getCatalog().getClassAttrName(destClassId, i));
+                builder.append(" | ");
             }
         }
         builder.append("\r\n");
         if (oidQuery.size() == 0) return new String(builder);
         for (long oid : oidQuery) {
-            builder.append("|  ");
+            builder.append("| ");
             Object current = oid2Object.get(oid);
             for (int i = 0; i < isQueryList.length; i++) {
                 if (isQueryList[i]) {
                     builder.append(current.getField(i).toString());
-                    builder.append("  |  ");
+                    builder.append(" | ");
                 }
             }
             builder.append("\r\n");
         }
         return new String(builder);
+    }
+
+    /**
+     * 获取某个对象属性名到数据的映射
+     *
+     * @param oid
+     * @return
+     */
+    private HashMap<String, Field> getAttrName2Data(long oid) {
+        HashMap<String, Field> attrName2Data = new HashMap<>();
+        Object object = oid2Object.get(oid);
+        for (int i = 0; i < DB.getCatalog().getClassAttrNumber(object.getBelongClassId()); i++) {
+            attrName2Data.put(DB.getCatalog().getClassAttrName(object.getBelongClassId(), i), object.getField(i));
+        }
+        return attrName2Data;
     }
 }
